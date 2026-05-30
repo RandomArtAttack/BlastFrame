@@ -2,6 +2,14 @@
 # PROJECT CONFIG — edit per project
 # =============================================
 
+# ⭐ ARCHITECTURE SOURCE OF TRUTH
+# `DESIGN.md` (repo root) is the canonical architecture spec + build checklist.
+# ALWAYS consult DESIGN.md for how a system is built, its data shapes, and build order.
+# UPDATE DESIGN.md whenever an architectural decision changes (and log the dated rationale in
+# Assets/GameDesign.md). Where DESIGN.md and this file disagree, DESIGN.md wins (it is newer).
+# NOTE: as of 2026-05-30 the project is greenfield — the movement/combat described below is a
+# WRITTEN SPEC, not yet implemented code. HANDOFF.md tracks status; LAST_LEFT_OFF.txt is the needle.
+
 # Project Overview
 Unity 6 (6000.3.10f1) — Universal Render Pipeline (URP 17.3.0), 3D
 (Viewmodel/gun uses URP camera stacking, not custom passes.)
@@ -82,14 +90,18 @@ Boot, MainMenu, HQ, Loading, Run, Paused, Death, RunComplete, GameOver
 # Save Data Shape
 - metaCurrency: int (earned per run, spent at HQ)
 - purchasedPermanentIds: List<string> (HQ permanent powerups — persist forever)
-- unlockedLevelIndex: int (highest level reached, 0-8)
-- unlockedWeaponIds: List<string> (weapons/abilities dropped by bosses)
+- completedAreaIds: HashSet<string> (REPLACES unlockedLevelIndex — drives the Mega Man weakness-web
+  + cross-area effect graph; see DESIGN.md §8. Area unlock/alter state is DERIVED from this set, not stored)
+- unlockedWeaponIds: List<string> (weapons dropped by bosses — cycle-all + per-weapon energy)
+- unlockedAbilityIds: List<string> (abilities dropped by bosses — equipped separately from weapons)
 - runState: nullable RunSaveData (only if a run is mid-progress and resumable)
-  - currentLevelIndex: int
+  - runSeed (deterministic content derivation via SeedService — see DESIGN.md §7)
+  - currentAreaId: string
   - currentRoomIndex: int
   - difficulty: enum Easy|Medium|Hard
   - currentHealth: int
   - activeRunPowerupIds: List<string> (temporary — cleared on death)
+  - weaponEnergy: Dictionary<string,float> (per-weapon energy, not persisted past death)
 - statsTotals: bestLevelReached, totalRuns, totalDeaths, totalKills
 - audioVolumeMaster/Music/SFX: float
 - mouseSensitivity: float, invertY: bool
@@ -120,7 +132,8 @@ Master, Music, SFX (UI routes to SFX)
 2. Enter a run: play through the current level's rooms (3 variant possibilities each).
 3. Fight robots, collect temporary powerups/heals, find hidden secrets.
 4. Clear all rooms → mini-boss → more rooms → boss.
-5. Boss drops a unique powerup + a new weapon/ability, unlocks the next level.
+5. Boss drops a unique powerup + a new weapon/ability, and runs the area's onComplete effects
+   (Mega Man weakness-web: unlock AND alter OTHER areas — not a linear "next level"). See DESIGN.md §8.
 6. Death at any point → back to HQ, keep metaCurrency + permanents, lose run powerups.
 7. Repeat, pushing deeper across the 9 levels.
 
@@ -147,7 +160,9 @@ Master, Music, SFX (UI routes to SFX)
 - Permanent powerups bought at HQ make subsequent runs easier (the meta-progression)
 
 # Powerup Tiers
-- Run powerups (temporary): picked up mid-run, lost on death
+- Run powerups (temporary): HYBRID acquisition — Minor (health/energy/currency) auto-apply on touch;
+  Major (build-defining) are a CHOOSE-1-OF-3 draft at room-clear/chest. PowerupSO.tier = Minor|Major.
+  See DESIGN.md §9.2. (Picked up mid-run, lost on death.)
 - Boss powerups (unique): dropped by bosses, powerful, still run-scoped unless noted
 - Permanent powerups (HQ shop): bought with metaCurrency, persist across all runs
 - Single meta currency: metaCurrency, earned per run, spent only at HQ
@@ -251,7 +266,8 @@ Master, Music, SFX (UI routes to SFX)
 - `MiniBossCore` / `BossCore` extend the EnemyCore contract with phase logic
 - Phases are composable behavior swaps driven by health thresholds
 - On death: spawn unique powerup pickup + grant a new weapon/ability id +
-  raise OnBossDefeated (unlocks next level)
+  raise OnBossDefeated → add area to completedAreaIds → apply the area's onComplete
+  effect graph (unlock/alter other areas — DESIGN.md §8). NOT a linear next-level unlock.
 
 
 # =============================================
