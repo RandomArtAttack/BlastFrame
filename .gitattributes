@@ -1,0 +1,28 @@
+# Normalize line endings
+* text=auto
+
+# Unity YAML — force merge with UnityYAMLMerge and treat as text
+*.cs text diff=csharp
+*.unity merge=unityyamlmerge eol=lf
+*.prefab merge=unityyamlmerge eol=lf
+*.asset merge=unityyamlmerge eol=lf
+*.meta merge=unityyamlmerge eol=lf
+*.controller merge=unityyamlmerge eol=lf
+*.anim merge=unityyamlmerge eol=lf
+*.mat merge=unityyamlmerge eol=lf
+*.physicMaterial merge=unityyamlmerge eol=lf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.psd binary
+*.tga binary
+*.fbx binary
+*.obj binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.dll binary
+*.unitypackage binary

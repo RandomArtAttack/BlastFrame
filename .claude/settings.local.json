@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find Assets -iname \"*.prefab\")",
+      "Bash(find Assets -iname \"*player*\")"
+    ]
+  }
+}
