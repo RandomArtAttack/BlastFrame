@@ -33,8 +33,10 @@ spec**. The detailed movement design in CLAUDE.md is the canonical "how we have 
 - **Variant system (#1):** one unified **seeded weighted-roll** (`VariantSetSO`) for room layout /
   spawn / enemy variant; enemy variant = `VariantProfileSO` applied to one base prefab in `OnSpawn`.
 - **Seeding:** single `runSeed` + `SeedService` deterministic derivation (resumable/shareable runs).
-- **Weapons (#5):** Mega Man **cycle-all + per-weapon energy**; base charge-blaster unlimited;
-  abilities are separate boss equips, owned forever.
+- **Weapons (#5):** **cycle-all, UNLIMITED, trade-off-balanced FPS types — NO energy/ammo** (identity
+  via fire rate/damage/spread/range/charge); weakness-web = effectiveness, not availability. Abilities
+  are separate boss equips, owned forever.
+- **Charge-shot:** **discrete 3 tiers** (tap Lv0 + Lv1/2/3), AoE on upper tiers, tick cue per tier.
 - **Run powerups (#6):** hybrid — Minor pickups auto-apply, Major powerups are a **1-of-3 draft** at
   room-clear/chest (`PowerupSO.tier`).
 - **Movement (locked 2026-05-30, DESIGN.md §4):** single jump base (double-jump = unlockable ability);

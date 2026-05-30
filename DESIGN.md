@@ -98,15 +98,26 @@ grounded/wall state. Modules are sibling components on the Player root, orchestr
 
 ## 5. Combat
 
-- **Base attack — charge-blaster (always available, unlimited):** `PlayerShooter` + `ChargeShot`.
-  Tap = small fast shot, no AoE. Hold = charge scales damage + projectile size; charged shot detonates
-  with `AoeExplosion` on impact. Charge level drives `ChargeBarUI`. Pooled `PlayerProjectile`.
-- **Boss weapons — Mega Man cycle-all + per-weapon energy:** every unlocked weapon is available every
-  run; cycle through all (bumper/keys); each has its own **energy meter** (refilled by pickups / slow
-  regen). Weapon-vs-boss weakness bonuses come from the cross-area effect graph (§8).
+- **Base attack — charge-blaster (always available):** `PlayerShooter` + `ChargeShot`. **Discrete charge
+  tiers** (not continuous): Lv0 tap = small fast shot, no AoE; charge crosses fixed time thresholds
+  (FloatReference, ~0.4 / 0.9 / 1.5s) → Lv1, Lv2, Lv3, each a distinct projectile (size/damage), with an
+  audio/visual tick cue per tier. **AoE (`AoeExplosion`) on impact at Lv2 and Lv3** (the upper/charged
+  tiers); Lv0–Lv1 are direct-hit. Charge level drives `ChargeBarUI`. Pooled `PlayerProjectile`.
+  Other weapons may define their own charge behavior or none.
+- **Boss weapons — cycle-all, traditional FPS, NO energy/ammo:** every unlocked weapon is available
+  every run; cycle through all (bumper/keys); each is a distinct weapon **type** balanced purely by
+  **handling trade-offs** — fire rate, damage, projectile speed, spread, range, AoE, charge behavior
+  (some weapons may charge, some not). No energy meter, no ammo counts, no overheat. Weapon-vs-boss
+  weakness bonuses (the right weapon does more against its boss) come from the cross-area effect
+  graph (§8) — effectiveness, not availability.
 - **Abilities — separate boss equips** (active or passive; e.g. shield burst, double-jump, dash
   upgrade), owned forever, bound separately from the weapon cycle. Distinct from weapons.
 - **Damage/status:** via `IDamageable` interface — never type-check the hit object.
+- **Player damage model (5 HP, integer):** both **contact** (touching enemies) and **projectile/attack**
+  hits deal integer damage — most hits = 1, heavy/boss attacks = 2+. On any hit: **~1s i-frames**
+  (FloatReference) + sprite/screen **flash** + small **knockback** for recovery space. **Environmental
+  hazards (lava/spikes) BYPASS i-frames** (damage on contact/exit) so they stay lethal and can't be
+  tanked through. Max HP can be raised by permanents.
 
 ---
 
@@ -201,9 +212,8 @@ AES-encrypted JSON, IDs only, plain C# `SaveData` (resolve to SOs via registries
   - `runSeed`  ← **added** (deterministic content, §7)
   - `currentAreaId, currentRoomIndex, difficulty (Easy|Medium|Hard), currentHealth`
   - `activeRunPowerupIds: List<string>` (temporary — cleared on death)
-  - `weaponEnergy: Dictionary<string,float>` (per-weapon energy state)
 - `statsTotals`, audio volumes, mouseSensitivity/invertY.
-- **NOT persisted past death:** run powerups, heals, run currency-equivalents, weapon energy.
+- **NOT persisted past death:** run powerups, heals, run currency-equivalents.
 
 ---
 
@@ -218,7 +228,7 @@ AES-encrypted JSON, IDs only, plain C# `SaveData` (resolve to SOs via registries
 - **Audio:** AudioCueSO-driven, AudioManager listens to events, pooled AudioSources, mixer groups (Master/Music/SFX).
 - **UI:** Canvas + TMP. HUD: HealthDisplay (int, start 5), DashCooldownUI (ring), ChargeBarUI, weapon +
   energy indicator. HQ: ShopUI (permanents), run-start panel (area + difficulty). Major-powerup draft
-  card UI. UI reacts to events/SO data only.
+  card UI. Weapon indicator shows the current weapon (no energy/ammo bar). UI reacts to events/SO data only.
 
 ---
 
@@ -227,8 +237,8 @@ AES-encrypted JSON, IDs only, plain C# `SaveData` (resolve to SOs via registries
 - **Hit feedback / i-frames:** brief player invuln + hitstop/flash on damage (5 HP is unforgiving).
 - **Telegraphed boss attacks:** wind-up tells; phases should read clearly in first-person.
 - **Run-summary screen:** on death/clear show kills, rooms, currency earned, seed (shareable).
-- **Energy economy tie-in:** make weapon-energy pickups a meaningful drop so cycle-all weapons have cost.
-- **Secret-route payoff loop:** hidden secrets should grant Major-tier draft picks or weapon energy, not just currency.
+- **Weapon variety/balance:** since weapons are unlimited, lean hard into distinct *handling* identities so each feels like a real choice (the weakness-web gives situational reasons to swap).
+- **Secret-route payoff loop:** hidden secrets should grant Major-tier draft picks or new weapon/ability unlocks, not just currency.
 - **Accessibility:** the existing Difficulty Director idea (auto-scale fire-rate/count) as an opt-in assist.
 - **Deferred:** seed-sharing/daily-run UI, structural enemy variants beyond profiles, meta beyond permanents.
 
@@ -257,7 +267,7 @@ AES-encrypted JSON, IDs only, plain C# `SaveData` (resolve to SOs via registries
 
 ### Milestone C — Combat
 - [ ] IDamageable; pooled PlayerProjectile; PlayerShooter + ChargeShot + AoeExplosion; ChargeBarUI.
-- [ ] Weapon system: cycle-all owned weapons + per-weapon energy meter + HUD; AbilitySO equips.
+- [ ] Weapon system: cycle-all owned weapons (unlimited, trade-off-balanced types) + weapon HUD; AbilitySO equips.
 - [ ] EnemyCore + EnemyStats + behavior modules; MissileTurret + ArcPredictTurret; pooled enemy projectiles.
 
 ### Milestone D — Variability & Content

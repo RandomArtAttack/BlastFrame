@@ -92,7 +92,8 @@ Boot, MainMenu, HQ, Loading, Run, Paused, Death, RunComplete, GameOver
 - purchasedPermanentIds: List<string> (HQ permanent powerups — persist forever)
 - completedAreaIds: HashSet<string> (REPLACES unlockedLevelIndex — drives the Mega Man weakness-web
   + cross-area effect graph; see DESIGN.md §8. Area unlock/alter state is DERIVED from this set, not stored)
-- unlockedWeaponIds: List<string> (weapons dropped by bosses — cycle-all + per-weapon energy)
+- unlockedWeaponIds: List<string> (weapons dropped by bosses — cycle-all, unlimited, trade-off-balanced
+  FPS weapon types; NO energy/ammo. See DESIGN.md §5)
 - unlockedAbilityIds: List<string> (abilities dropped by bosses — equipped separately from weapons)
 - runState: nullable RunSaveData (only if a run is mid-progress and resumable)
   - runSeed (deterministic content derivation via SeedService — see DESIGN.md §7)
@@ -101,7 +102,6 @@ Boot, MainMenu, HQ, Loading, Run, Paused, Death, RunComplete, GameOver
   - difficulty: enum Easy|Medium|Hard
   - currentHealth: int
   - activeRunPowerupIds: List<string> (temporary — cleared on death)
-  - weaponEnergy: Dictionary<string,float> (per-weapon energy, not persisted past death)
 - statsTotals: bestLevelReached, totalRuns, totalDeaths, totalKills
 - audioVolumeMaster/Music/SFX: float
 - mouseSensitivity: float, invertY: bool
@@ -223,10 +223,13 @@ Master, Music, SFX (UI routes to SFX)
 
 # Player Shooting
 - `PlayerShooter` on camera/weapon — fires `PlayerProjectile` from muzzle
-- `ChargeShot` — hold fire to charge: charge time scales damage and projectile
-  size; a fully/partially charged shot detonates with an AoE explosion
-  (`AoeExplosion`) on impact. Tap fire = small fast shot, no AoE.
+- `ChargeShot` — **discrete charge tiers** (not continuous): Lv0 tap = small fast
+  shot (no AoE); holding crosses fixed time thresholds → Lv1/Lv2/Lv3, each a distinct
+  projectile, with a tick cue per tier. AoE (`AoeExplosion`) on impact at the upper
+  tiers (Lv2/Lv3). See DESIGN.md §5.
 - Charge level drives `ChargeBarUI`. Projectiles are pooled.
+- Weapons are CYCLE-ALL, UNLIMITED, trade-off-balanced FPS types — no energy/ammo.
+  The blaster (above) is the starter; boss-drop weapons differ by handling, not resource.
 
 
 # =============================================

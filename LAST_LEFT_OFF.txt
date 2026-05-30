@@ -1,59 +1,46 @@
-LAST LEFT OFF — 2026-05-18 (parked — done for the night)
+LAST LEFT OFF — 2026-05-30 (design pass — wrapped)
 
 LAST ACTION:
-Compile gate (step A) passed. Iterated on dash via build feedback:
-no air-dash (ground-only initiation; dash-jump still carries momentum),
-controller dash moved to East button (B/Circle), dash duration 0.18→0.72,
-dash speed 22→15.4. Fixed a compile error (EnemyCore using in PlayerProjectile).
+Ran a full design interview and wrote the architecture docs. Created root
+DESIGN.md (architecture spec + Milestone A–F build checklist) and HANDOFF.md;
+pointed CLAUDE.md at DESIGN.md and reconciled it. Deleted a misplaced empty
+nested Unity project ("Blood and Bark") from the repo root.
 
 CURRENT STATE:
-- Step A (compile) DONE. Step B (verify movement) IN PROGRESS.
-- All movement/input code compiles. Combat code written but Fixes 011-013 not
-  yet run and no test content placed.
-- IMPORTANT: dash stat changes are code DEFAULTS only. The existing Player in
-  Level01 has serialized values that will NOT auto-update — must set them in
-  the Inspector (see pending steps).
+- PROJECT IS GREENFIELD. The movement/combat described in CLAUDE.md was never
+  actually committed here (single initial commit, no Assets/Scripts, only
+  SampleScene). Earlier code was lost. Treat DESIGN.md as the build target.
+- DESIGN.md is the source of truth. Decisions locked this session:
+  * Areas: Mega Man weakness-web + declarative cross-area effect graph (derived
+    from a saved completedAreaIds set).
+  * Variability: one seeded weighted-roll (VariantSetSO) for room/spawn/enemy;
+    enemy variant = VariantProfileSO applied on spawn. Single runSeed (SeedService).
+  * Weapons: cycle-all, UNLIMITED, trade-off-balanced FPS types — NO energy/ammo.
+  * Charge shot: discrete 3 tiers (tap + Lv1/2/3), AoE on upper tiers.
+  * Player damage: contact + projectile, ~1s i-frames + flash + knockback at
+    5 HP; hazards bypass i-frames.
+  * Run powerups: hybrid (Minor instant / Major 1-of-3 draft).
+  * MOVEMENT (build to match, DESIGN.md §4): single jump base (double-jump =
+    unlockable ability); 4-unit jump w/ gravity tuned up; snappy ground;
+    ground-only locked dash (input dir, horizontal), jump-cancellable;
+    dash-jump maintains full dash speed, steerable, resumes on land;
+    press-toward wall slide; wall jump = up + STRONG away + ~0.45s steer-lock
+    => chimney-jumping is the vertical mechanic (single-wall climb impractical).
 
 NEXT STEP:
-Set the Player's PlayerStats dash fields in the Inspector, rebuild, finish the
-step-B movement checklist, then proceed to C (combat + pools).
+Start coding Milestone A (Core Framework) from DESIGN.md §14, then Milestone B
+(Player movement). Build one checklist item at a time in a test scene.
 
-PENDING MANUAL STEPS (ordered):
-
-  B. FINISH MOVEMENT VERIFY
-  [ ] Level01 > select Player > PlayerStats: Dash Speed = 15.4,
-      Dash Duration = 0.72. (Earlier 0.36 edit is superseded by 0.72.) Save Level01.
-  [ ] Core > GameManager: confirm Target Frame Rate = 144.
-  [ ] Build & Run (Development Build). Verify: 4-unit jump clears Ledge_TooHigh;
-      variable jump; dash is ground-only (no air dash); dash→jump still carries
-      momentum; dash feels slower/longer (~11m); controller dash = B/Circle;
-      wall jump straight off ~0.5s then steerable; look full range w/ VSync;
-      cursor hidden.
-  [ ] Note any feel issues. Open Q: dash distance grew to ~11m (was ~8m) — decide
-      if that's wanted or drop speed to ~11 m/s to hold distance constant.
-
-  C. COMBAT + POOLS
-  [ ] Fix 011 - Build Combat Prefabs And Pools (wires Core, saves Core)
-  [ ] Open Level01
-  [ ] Fix 012 - Add PlayerShooter To Camera
-  [ ] Fix 013 - Add Charge Bar To HUD
-  [ ] Ctrl+S Level01
-
-  D. PLACE TEST CONTENT (Level01 open)
-  [ ] Tools > Blast Frame > Platforms > Moving / Rotating / Treadmill / Spring
-      Board (position them; for Moving, drag child Waypoint_A/B)
-  [ ] Tools > Blast Frame > Enemies > Missile Turret + Arc Predict Turret
-  [ ] Position all; Ctrl+S Level01
-
-  E. PLAY TEST FROM CORE
-  [ ] Verify shooting (tap/charge/AoE), both turrets, all platforms.
-  [ ] Note feel/tuning issues.
+PENDING MANUAL STEPS:
+- None in-editor yet (no code written). First editor work begins with Milestone A.
+- Open tuning to settle in prototype: dash distance ~11m at speed 15.4 — keep,
+  or drop to ~11 m/s for ~8m.
 
 BLOCKERS / OPEN QUESTIONS:
-- Open Q above re: dash distance (~11m) — confirm or retune.
-- No in-game quit (Alt+F4 to exit builds). Optional future: Pause input action
-  → Esc unlocks cursor + quits.
-- EnemyCore Destroys on death (turrets placed, not pooled) — fine for now.
+- Uncommitted doc edits (energy-system removal + charge tiers + damage model)
+  on branch docs/design-architecture are NOT yet committed — ask to commit.
+- Not yet grilled: enemy roster, boss/phase design, HQ economy. Resume there.
 
-DURABLE DOCS CURRENT: Assets/GameInfo.md (setup/gotchas) and
-Assets/GameDesign.md (design log) — read those for detail; this is the needle.
+DURABLE DOCS CURRENT: DESIGN.md (architecture + checklist) and HANDOFF.md
+(status) at repo root. Assets/GameDesign.md (dated design log) still NOT created
+this session — pending.
