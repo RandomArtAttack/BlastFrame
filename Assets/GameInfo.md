@@ -307,3 +307,66 @@ The HUD lives on a "HUD" Canvas (Screen Space Overlay) in the Core scene. `HUDCo
 - `MoveSpeedBuff` and `MaxHealthUp` are intentionally stubbed; mutating the shared FloatVariable without a modifier layer would permanently corrupt the stat.
 - The trigger lives on the root, not on the visual child — the visual capsule's collider is stripped in the wizard.
 - Fix 015 never overwrites an existing Heal.asset — it bails with a log if the asset is already present.
+
+---
+
+## Bosses
+
+### BossPhase
+**Namespace:** `BlastFrame.Gameplay.Enemies.Bosses`
+**File:** `Assets/Scripts/Gameplay/Enemies/Bosses/BossPhase.cs`
+**Type:** `[System.Serializable]` plain class — used as a list element on MiniBossCore / BossCore
+**Fields:**
+- `healthFraction` (float, 0–1) — threshold at or below which this phase activates (e.g. 0.5 = 50% health)
+- `behaviorsToEnable` (`List<EnemyBehaviorBase>`) — sibling behavior components to ENABLE; all other EnemyBehaviorBase siblings are disabled
+**Ordering rule:** List phases from highest `healthFraction` to lowest (phase 0 = full health / spawn-in, last = near-death). The boss evaluates from last to first to find the deepest threshold that has been crossed.
+**Gotchas:**
+- `behaviorsToEnable` references are sibling components on the **same GameObject** — self-contained prefab wiring, not cross-object references.
+- Phases are evaluated on every `OnDamaged` event and once on `OnEnable` (spawn); no polling.
+- If the list is empty the boss spawns with all behaviors enabled (no phase management).
+
+---
+
+### MiniBossCore
+**Namespace:** `BlastFrame.Gameplay.Enemies.Bosses`
+**File:** `Assets/Scripts/Gameplay/Enemies/Bosses/MiniBossCore.cs`
+**Extends:** `EnemyCore` (which requires `EnemyStats` via `[RequireComponent]`)
+**Required components (same GO):** `EnemyStats`, one or more `EnemyBehaviorBase` subclasses
+**Required SO / prefab refs (serialized):**
+- `entityRegistry` — `EntityRegistrySO` asset (inherited from EnemyCore; wire `EntityRegistry.asset`)
+- `dropPrefab` — `GameObject` prefab instantiated at boss position on death (e.g. a PowerupPickup prefab); leave null for no drop
+- `onBossDefeated` — `GameEventSO` raised on death (room-clear, level-unlock hook, etc.)
+- `onWeaponUnlocked` — `StringGameEventSO` raised with the weapon/ability ID string on death
+- `weaponUnlockId` — string ID matched by the weapon-unlock registry (e.g. `"weapon_rocket"`)
+**Phase contract:**
+- `phases` — `List<BossPhase>`, ordered highest-to-lowest `healthFraction`
+- Subscribes to `OnDamaged` in `OnEnable`, unsubscribes in `OnDisable`
+- `EvaluatePhases` fires on every damage event and once at `OnEnable` (spawn)
+- `ApplyPhase` enables listed behaviors and disables all others — no Animator, no nested switch
+**Death sequence:** instantiate `dropPrefab` → raise `onWeaponUnlocked` (if `weaponUnlockId` non-empty) → raise `onBossDefeated` → call `base.Die()` (grants currency, unregisters, destroys/despawns)
+**Setup:** `Tools > Blast Frame > Enemies > Create Mini Boss` — builds a 2×2×2 cube with EnemyStats + MiniBossCore + placeholder behaviors (MissileTurret enabled, ArcPredict disabled), wires EntityRegistry. Configure phases and assign `dropPrefab` / event SOs in the Inspector, then save as a prefab.
+**Test fix:** `Tools > Blast Frame > Implement Fix > 020 - Place Test Boss In TestLevel`
+**Gotchas:**
+- `dropPrefab` is a `GameObject` asset reference (not a MonoBehaviour reference) — avoids compile dependency on the Powerups feature.
+- `weaponUnlockId` is a plain string raised via `StringGameEventSO` — the unlock registry listens; no direct coupling.
+- `base.Die()` destroys or despawns the GO; spawn the drop BEFORE calling it.
+- Phase `healthFraction` of 1.0 activates immediately on spawn (fraction == 1.0 satisfies `fraction <= 1.0`).
+
+---
+
+### BossCore
+**Namespace:** `BlastFrame.Gameplay.Enemies.Bosses`
+**File:** `Assets/Scripts/Gameplay/Enemies/Bosses/BossCore.cs`
+**Extends:** `EnemyCore` — same contract as MiniBossCore plus one extra event
+**Required components (same GO):** `EnemyStats`, one or more `EnemyBehaviorBase` subclasses
+**Required SO / prefab refs (serialized):**
+- `entityRegistry` — `EntityRegistrySO` asset (wire `EntityRegistry.asset`)
+- `dropPrefab` — `GameObject` prefab instantiated on death; leave null for no drop
+- `onBossDefeated` — `GameEventSO` raised on death (parameterless)
+- `onLevelUnlocked` — `GameEventSO` raised on death to unlock the next level (wire `OnLevelUnlocked.asset`)
+- `onWeaponUnlocked` — `StringGameEventSO` raised with weapon/ability ID string on death
+- `weaponUnlockId` — string ID, e.g. `"weapon_charge_cannon"`
+**Death sequence:** instantiate `dropPrefab` → raise `onWeaponUnlocked` → raise `onBossDefeated` → raise `onLevelUnlocked` → call `base.Die()`
+**Setup:** `Tools > Blast Frame > Enemies > Create Boss` — builds a 3×3×3 cube with EnemyStats + BossCore + three placeholder behaviors (MissileTurret × 2 + ArcPredict), wires EntityRegistry. Configure three phases, assign drop/events, save as prefab.
+**Test fix:** `Tools > Blast Frame > Implement Fix > 020 - Place Test Boss In TestLevel`
+**Gotchas:** Same as MiniBossCore plus: `onLevelUnlocked` must be wired to advance the run — without it the next level is never unlocked. Typical full-boss health is higher than mini-boss; set `EnemyStats.health` accordingly.

@@ -14,6 +14,8 @@ using BlastFrame.Gameplay.Weapons;
 using BlastFrame.Gameplay.Projectiles;
 using BlastFrame.Gameplay.Powerups;
 using BlastFrame.Gameplay.Rooms;
+using BlastFrame.Gameplay.Economy;
+using BlastFrame.Gameplay.HQ;
 using BlastFrame.CameraRig;
 
 namespace BlastFrame.EditorTools
@@ -813,20 +815,6 @@ namespace BlastFrame.EditorTools
         [MenuItem("Tools/Blast Frame/Implement Fix/020 - Place Test Boss In TestLevel")]
         private static void Fix020()
         {
-            // ---- inline helpers ----------------------------------------------------------------
-            static void EnsureFolder020(string assetPath)
-            {
-                var parts = assetPath.Split('/');
-                string cur = parts[0];
-                for (int i = 1; i < parts.Length; i++)
-                {
-                    string next = cur + "/" + parts[i];
-                    if (!AssetDatabase.IsValidFolder(next))
-                        AssetDatabase.CreateFolder(cur, parts[i]);
-                    cur = next;
-                }
-            }
-
             // ---- guard: TestLevel.unity must exist ---------------------------------------------
             const string scenePath = "Assets/Scenes/TestLevel.unity";
             if (!File.Exists(Path.Combine(Application.dataPath.Replace("Assets", ""), scenePath)))
@@ -1221,6 +1209,201 @@ namespace BlastFrame.EditorTools
             Selection.activeObject = canvasGo;
             EditorGUIUtility.PingObject(canvasGo);
             Debug.Log("[Fix013] HUD Canvas built in Core: HealthText (top-left), DashRing (bottom-left), ChargeBar (bottom-center). EntityRegistry wired to all widgets.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/018 - Add Currency Manager To Core")]
+        private static void Fix018()
+        {
+            const string scenePath = "Assets/Scenes/Core.unity";
+            if (!File.Exists(Path.Combine(Application.dataPath.Replace("Assets", ""), scenePath)))
+            {
+                Debug.LogError("[Fix018] Core.unity not found — run Fix 001 first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+
+            // Idempotency: abort if a CurrencyManager already exists anywhere in the scene.
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.GetComponentInChildren<BlastFrame.Gameplay.Economy.CurrencyManager>(true) != null)
+                {
+                    Debug.LogWarning("[Fix018] CurrencyManager already present in Core — nothing to do.");
+                    EditorSceneManager.CloseScene(scene, false);
+                    return;
+                }
+            }
+
+            var go = new GameObject("CurrencyManager");
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(go, scene);
+            go.AddComponent<BlastFrame.Gameplay.Economy.CurrencyManager>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = go;
+            EditorGUIUtility.PingObject(go);
+            Debug.Log("[Fix018] CurrencyManager GameObject added to Core.unity and scene saved.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/019 - Build HQ Shop Demo")]
+        private static void Fix019()
+        {
+            // ---- inline helpers ----------------------------------------------------------------
+            static void EnsureFolder019(string assetPath)
+            {
+                var parts = assetPath.Split('/');
+                string cur = parts[0];
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    string next = cur + "/" + parts[i];
+                    if (!AssetDatabase.IsValidFolder(next))
+                        AssetDatabase.CreateFolder(cur, parts[i]);
+                    cur = next;
+                }
+            }
+
+            // Creates a PermanentUpgradeSO only if it does not already exist.
+            // NEVER overwrites an existing asset — preserves all tuned cost/magnitude values.
+            static BlastFrame.Gameplay.HQ.PermanentUpgradeSO EnsureUpgrade(
+                string assetPath,
+                string id, string displayName, string description,
+                int cost, float magnitude,
+                BlastFrame.Gameplay.HQ.PermanentUpgradeEffect effect)
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.HQ.PermanentUpgradeSO>(assetPath);
+                if (existing != null)
+                {
+                    Debug.Log($"[Fix019] '{assetPath}' already exists — skipping to preserve tuned values.");
+                    return existing;
+                }
+
+                var so = ScriptableObject.CreateInstance<BlastFrame.Gameplay.HQ.PermanentUpgradeSO>();
+                AssetDatabase.CreateAsset(so, assetPath);
+
+                var sobj = new SerializedObject(so);
+                sobj.FindProperty("id").stringValue          = id;
+                sobj.FindProperty("displayName").stringValue = displayName;
+                sobj.FindProperty("description").stringValue = description;
+                sobj.FindProperty("effect").enumValueIndex   = (int)effect;
+
+                // cost: IntReference — UseConstant true, ConstantValue = cost
+                var costProp = sobj.FindProperty("cost");
+                costProp.FindPropertyRelative("UseConstant").boolValue    = true;
+                costProp.FindPropertyRelative("ConstantValue").intValue   = cost;
+
+                // magnitude: FloatReference — UseConstant true, ConstantValue = magnitude
+                var magProp = sobj.FindProperty("magnitude");
+                magProp.FindPropertyRelative("UseConstant").boolValue    = true;
+                magProp.FindPropertyRelative("ConstantValue").floatValue = magnitude;
+
+                sobj.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[Fix019] Created '{assetPath}' (id={id}, cost={cost}, magnitude={magnitude}).");
+                return so;
+            }
+
+            // ---- step 1: ensure folder ---------------------------------------------------------
+            EnsureFolder019("Assets/ScriptableObjects/Permanents");
+
+            // ---- step 2: sample upgrade assets (create-if-missing only) -----------------------
+            var extraHealth = EnsureUpgrade(
+                "Assets/ScriptableObjects/Permanents/ExtraHealth.asset",
+                id:          "ExtraHealth",
+                displayName: "Extra Health",
+                description: "Start each run with +1 maximum health.",
+                cost:        50,
+                magnitude:   1f,
+                effect:      BlastFrame.Gameplay.HQ.PermanentUpgradeEffect.MaxHealthBonus);
+
+            var fasterDash = EnsureUpgrade(
+                "Assets/ScriptableObjects/Permanents/FasterDash.asset",
+                id:          "FasterDash",
+                displayName: "Faster Dash",
+                description: "Reduces dash cooldown by 1 second.",
+                cost:        75,
+                magnitude:   1f,
+                effect:      BlastFrame.Gameplay.HQ.PermanentUpgradeEffect.DashCooldownReduce);
+
+            // ---- step 3: PermanentUpgradeRegistrySO (create-if-missing; populate if empty) ----
+            const string regPath = "Assets/ScriptableObjects/Permanents/PermanentRegistry.asset";
+            var registry = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.HQ.PermanentUpgradeRegistrySO>(regPath);
+            if (registry == null)
+            {
+                registry = ScriptableObject.CreateInstance<BlastFrame.Gameplay.HQ.PermanentUpgradeRegistrySO>();
+                AssetDatabase.CreateAsset(registry, regPath);
+                AssetDatabase.SaveAssets();
+                Debug.Log("[Fix019] Created PermanentRegistry.asset.");
+            }
+
+            // Populate the list only if it is currently empty — never overwrite a hand-curated list.
+            var regSo = new SerializedObject(registry);
+            var upgradesProp = regSo.FindProperty("upgrades");
+            if (upgradesProp.arraySize == 0)
+            {
+                upgradesProp.arraySize = 2;
+                upgradesProp.GetArrayElementAtIndex(0).objectReferenceValue = extraHealth;
+                upgradesProp.GetArrayElementAtIndex(1).objectReferenceValue = fasterDash;
+                regSo.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssets();
+                Debug.Log("[Fix019] Populated PermanentRegistry.asset with ExtraHealth + FasterDash.");
+            }
+            else
+            {
+                Debug.Log("[Fix019] PermanentRegistry.asset already has entries — skipping list population.");
+            }
+
+            // ---- step 4: wire ShopManager in Core scene ----------------------------------------
+            const string scenePath = "Assets/Scenes/Core.unity";
+            if (!File.Exists(Path.Combine(Application.dataPath.Replace("Assets", ""), scenePath)))
+            {
+                Debug.LogError("[Fix019] Core.unity not found — run Fix 001 first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+
+            // Find or create a ShopManager GameObject in Core.
+            BlastFrame.Gameplay.HQ.ShopManager shopMgr = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                shopMgr = root.GetComponentInChildren<BlastFrame.Gameplay.HQ.ShopManager>(true);
+                if (shopMgr != null) break;
+            }
+
+            if (shopMgr == null)
+            {
+                var smGo = new GameObject("ShopManager");
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(smGo, scene);
+                shopMgr = smGo.AddComponent<BlastFrame.Gameplay.HQ.ShopManager>();
+                Debug.Log("[Fix019] Created ShopManager GameObject in Core.");
+            }
+
+            // Wire registry only if the field is currently null (never overwrite a hand-set value).
+            var smSo = new SerializedObject(shopMgr);
+            var regProp = smSo.FindProperty("registry");
+            if (regProp.objectReferenceValue == null)
+            {
+                regProp.objectReferenceValue = registry;
+                smSo.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[Fix019] Wired PermanentRegistry.asset into ShopManager.registry.");
+            }
+            else
+            {
+                Debug.Log("[Fix019] ShopManager.registry already assigned — leaving as-is.");
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = registry;
+            EditorGUIUtility.PingObject(registry);
+            Debug.Log("[Fix019] HQ Shop Demo complete: ExtraHealth.asset + FasterDash.asset + PermanentRegistry.asset + ShopManager in Core.");
         }
     }
 }
