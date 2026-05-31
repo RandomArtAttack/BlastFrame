@@ -370,3 +370,69 @@ The HUD lives on a "HUD" Canvas (Screen Space Overlay) in the Core scene. `HUDCo
 **Setup:** `Tools > Blast Frame > Enemies > Create Boss` — builds a 3×3×3 cube with EnemyStats + BossCore + three placeholder behaviors (MissileTurret × 2 + ArcPredict), wires EntityRegistry. Configure three phases, assign drop/events, save as prefab.
 **Test fix:** `Tools > Blast Frame > Implement Fix > 020 - Place Test Boss In TestLevel`
 **Gotchas:** Same as MiniBossCore plus: `onLevelUnlocked` must be wired to advance the run — without it the next level is never unlocked. Typical full-boss health is higher than mini-boss; set `EnemyStats.health` accordingly.
+
+---
+
+## HQ / Economy / Shop
+
+### CurrencyManager
+**Namespace:** `BlastFrame.Gameplay.Economy`
+**File:** `Assets/Scripts/Gameplay/Economy/CurrencyManager.cs`
+**Registers as:** `ICurrencyManager` (ServiceLocator, Awake)
+**Required components (own GO):** none
+**Optional SOs:** `onCurrencyChangedEvent` (IntGameEventSO) — raised after every balance change; C# event `OnCurrencyChanged` fires regardless
+**Setup:** Run Fix 018 (`Tools > Blast Frame > Implement Fix > 018 - Add Currency Manager To Core`).
+**Behaviour:** Loads balance from `ISaveManager.Data.metaCurrency` in Start via TryGet (falls back to 0 if no save system). `Add` / `TrySpend` mutate the internal `CurrencyWallet` struct and notify all listeners.
+**Gotchas:** ISaveManager is optional (TryGet). Consumers call `ServiceLocator.Get<ICurrencyManager>()` in Start, never Awake.
+
+---
+
+### CurrencyWallet
+**Namespace:** `BlastFrame.Gameplay.Economy`
+**File:** `Assets/Scripts/Gameplay/Economy/CurrencyWallet.cs`
+**Type:** plain `struct` (not MonoBehaviour, not SO). Internal to CurrencyManager. Wraps a non-negative int; exposes `Add`, `TrySpend`, `SetBalance`. No outside system accesses this directly.
+
+---
+
+### PermanentUpgradeSO
+**Namespace:** `BlastFrame.Gameplay.HQ`
+**File:** `Assets/Scripts/Gameplay/HQ/PermanentUpgradeSO.cs`
+**Asset path:** `Assets/ScriptableObjects/Permanents/`
+**Create via:** right-click > `Blast Frame/HQ/Permanent Upgrade`; Fix 019 creates ExtraHealth + FasterDash samples.
+**Key fields:** `id` (string, unique), `displayName` (string), `description` (TextArea), `cost` (IntReference), `magnitude` (FloatReference), `effect` (PermanentUpgradeEffect enum: None, MaxHealthBonus, DashCooldownReduce, MoveSpeedBonus, DamageBonus, StartingCurrency)
+**Gotchas:** Fix 019 is create-only — never overwrites an existing asset. Permanent upgrades persist across deaths (saved in SaveData.purchasedPermanentIds). Do NOT store in-run state on these SOs.
+
+---
+
+### PermanentUpgradeRegistrySO
+**Namespace:** `BlastFrame.Gameplay.HQ`
+**File:** `Assets/Scripts/Gameplay/HQ/PermanentUpgradeRegistrySO.cs`
+**Asset path:** `Assets/ScriptableObjects/Permanents/PermanentRegistry.asset` (created by Fix 019)
+**API:** `Upgrades` (IReadOnlyList), `GetById(string id)`
+**Setup:** Fix 019 creates asset and populates it with ExtraHealth + FasterDash only if the list is currently empty.
+**Gotchas:** Fix 019 never repopulates an already-populated list. ShopManager and ShopUI both reference this; missing assignment silently no-ops with a LogWarning.
+
+---
+
+### ShopManager
+**Namespace:** `BlastFrame.Gameplay.HQ`
+**File:** `Assets/Scripts/Gameplay/HQ/ShopManager.cs`
+**Registers as:** `IShopManager` (ServiceLocator, Awake)
+**Required SOs:** `registry` (PermanentUpgradeRegistrySO) — wired by Fix 019 if null
+**Optional SOs:** `onPurchasedEvent` (GameEventSO) — raised after any successful purchase
+**Setup:** Fix 019 creates "ShopManager" GameObject in Core and wires the registry if the field is null.
+**Behaviour:** `IsOwned` checks `ISaveManager.Data.purchasedPermanentIds` (TryGet) or in-memory HashSet fallback. `TryPurchase` spends currency, marks owned, calls `ISaveManager.Save()` if present, raises event.
+**Gotchas:** Without ISaveManager, ownership is in-memory only (lost on quit). Wire Fix 021 (SaveManager) for persistence. Fix 019 does not overwrite a registry field that is already set.
+
+---
+
+### ShopUI
+**Namespace:** `BlastFrame.UI`
+**File:** `Assets/Scripts/UI/ShopUI.cs`
+**Required services:** `ICurrencyManager`, `IShopManager` (fetched via ServiceLocator.Get in Start)
+**Required SOs:** `registry` (PermanentUpgradeRegistrySO — same asset as ShopManager)
+**Required Inspector fields:** `rowContainer` (RectTransform with VerticalLayoutGroup), `currencyLabel` (TextMeshProUGUI)
+**Optional SOs:** `onPurchasedEvent` (GameEventSO — same as ShopManager's; subscribe to refresh rows on code-driven purchases)
+**Setup:** Add Canvas to the HQ/test scene with a VerticalLayoutGroup panel; add ShopUI; assign registry, rowContainer, currencyLabel. No automated fix for the full canvas yet — build manually.
+**Behaviour:** Builds rows at Start from registry. Each row has name, description, cost, owned-status, and Buy button. All refreshes are event-driven (OnCurrencyChanged / onPurchasedEvent) — no Update polling. Cannot-afford rows dim cost to grey and disable Buy. OWNED rows hide Buy and show "OWNED" in green.
+**Gotchas:** rowContainer and registry must be assigned or BuildRows silently no-ops. The onPurchasedEvent is optional but recommended so TestStat purchases reflect immediately in the UI. ContentSizeFitter on rowContainer is needed for auto-height scrolling.
