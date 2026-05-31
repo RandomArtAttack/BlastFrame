@@ -4,6 +4,9 @@ Newer entries at the top. Never reorder or delete old entries.
 
 ---
 
+[2026-05-31] — HQ / ECONOMY / SHOP: ARCHITECTURE DECISIONS
+Meta-currency (metaCurrency) is the single economy unit: earned per run, spent only at HQ on permanent upgrades. CurrencyManager owns the live wallet and registers as ICurrencyManager; it bootstraps from SaveData if a SaveManager is present and falls back to 0 otherwise, so the shop works without a save system wired. Permanent upgrades are authoring-time SOs (PermanentUpgradeSO) with IntReference cost and FloatReference magnitude — constants by default, optionally driven by Variable SO assets if a designer wants global tuning. ShopManager owns purchase logic and defers ownership persistence to ISaveManager (TryGet — optional), keeping the shop functional even without persistence. ShopUI is fully event-driven: it never polls in Update; OnCurrencyChanged and onPurchasedEvent drive all row refreshes. The "cannot afford" state is a visual dim, not a hidden row, so players can see what they are working toward.
+
 [2026-05-31] — LEVEL & RUN MANAGEMENT: ORCHESTRATION DESIGN
 RunManager is the single source of truth for run state (active, difficulty, level/room index). It sits in Core and registers as IRunManager so any system can reach it via ServiceLocator without a direct reference. LevelController lives per-level-scene and drives room advancement by listening to a GameEventSO rather than calling RunManager directly — this keeps it fully decoupled from the room feature. Difficulty is chosen at StartRun() call time and exposed as a read-only property; room-count and difficulty-scaling multipliers live on the LevelDefinitionSO so designers can tune each of the 9 levels independently.
 
