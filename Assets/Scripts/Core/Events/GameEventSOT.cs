@@ -30,4 +30,7 @@ namespace BlastFrame.Core.Events
 
     [CreateAssetMenu(fileName = "OnFloatEvent", menuName = "Blast Frame/Events/Float Event")]
     public class FloatGameEventSO : GameEventSO<float> { }
+
+    [CreateAssetMenu(fileName = "OnStringEvent", menuName = "Blast Frame/Events/String Event")]
+    public class StringGameEventSO : GameEventSO<string> { }
 }
