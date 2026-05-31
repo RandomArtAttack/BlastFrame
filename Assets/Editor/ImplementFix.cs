@@ -1405,5 +1405,350 @@ namespace BlastFrame.EditorTools
             EditorGUIUtility.PingObject(registry);
             Debug.Log("[Fix019] HQ Shop Demo complete: ExtraHealth.asset + FasterDash.asset + PermanentRegistry.asset + ShopManager in Core.");
         }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/009 - Place Test Platforms In TestLevel")]
+        private static void Fix009()
+        {
+            bool SceneExists(string path) => System.IO.File.Exists(
+                System.IO.Path.Combine(System.IO.Path.GetDirectoryName(Application.dataPath), path));
+
+            Material GetOrCreateMat(Color color)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null) shader = Shader.Find("Standard");
+                return new Material(shader) { color = color };
+            }
+
+            Transform FindOrNullContent(Scene s)
+            {
+                foreach (var root in s.GetRootGameObjects())
+                    if (root.name == "Content") return root.transform;
+                return null;
+            }
+
+            bool AlreadyExists(Scene s, string goName)
+            {
+                foreach (var root in s.GetRootGameObjects())
+                {
+                    if (root.name == goName) return true;
+                    foreach (Transform child in root.transform)
+                        if (child.name == goName) return true;
+                }
+                return false;
+            }
+
+            GameObject MakeCubePlatform(string goName, Vector3 pos, Vector3 scale, Material mat, Transform parent)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                go.name = goName;
+                go.transform.position = pos;
+                go.transform.localScale = scale;
+                if (go.TryGetComponent<MeshRenderer>(out var mr)) mr.sharedMaterial = mat;
+                if (parent != null) go.transform.SetParent(parent, true);
+                return go;
+            }
+
+            void SetupKinematicRb(GameObject go)
+            {
+                var rb = go.AddComponent<Rigidbody>();
+                rb.isKinematic = true;
+                rb.useGravity = false;
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                rb.constraints = RigidbodyConstraints.FreezeRotation;
+            }
+
+            Transform MakeWaypoint(string wpName, Transform parent, Vector3 localPos)
+            {
+                var wp = new GameObject(wpName);
+                wp.transform.SetParent(parent, false);
+                wp.transform.localPosition = localPos;
+                return wp.transform;
+            }
+
+            const string scenePath = "Assets/Scenes/TestLevel.unity";
+            if (!SceneExists(scenePath))
+            {
+                Debug.LogError("[Fix009] TestLevel.unity not found. Run Fix 002 first to create it.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            Transform content = FindOrNullContent(scene);
+
+            const string movingName = "TestMovingPlatform";
+            if (!AlreadyExists(scene, movingName))
+            {
+                var mat = GetOrCreateMat(new Color(0.3f, 0.55f, 0.85f));
+                var go = MakeCubePlatform(movingName, new Vector3(0f, 0.5f, 3f), new Vector3(3f, 0.3f, 3f), mat, content);
+                SetupKinematicRb(go);
+                var platform = go.AddComponent<BlastFrame.Gameplay.Platforms.MovingPlatform>();
+
+                var wp0 = MakeWaypoint("Waypoint_0", go.transform, Vector3.zero);
+                var wp1 = MakeWaypoint("Waypoint_1", go.transform, new Vector3(0f, 0f, 8f));
+
+                var so = new SerializedObject(platform);
+                var wps = so.FindProperty("waypoints");
+                wps.arraySize = 2;
+                wps.GetArrayElementAtIndex(0).objectReferenceValue = wp0;
+                wps.GetArrayElementAtIndex(1).objectReferenceValue = wp1;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[Fix009] Created TestMovingPlatform.");
+            }
+            else Debug.Log("[Fix009] TestMovingPlatform already exists — skipped.");
+
+            const string rotatingName = "TestRotatingPlatform";
+            if (!AlreadyExists(scene, rotatingName))
+            {
+                var mat = GetOrCreateMat(new Color(0.85f, 0.55f, 0.2f));
+                var go = MakeCubePlatform(rotatingName, new Vector3(6f, 0.5f, 6f), new Vector3(4f, 0.3f, 4f), mat, content);
+                SetupKinematicRb(go);
+                go.AddComponent<BlastFrame.Gameplay.Platforms.RotatingPlatform>();
+                Debug.Log("[Fix009] Created TestRotatingPlatform.");
+            }
+            else Debug.Log("[Fix009] TestRotatingPlatform already exists — skipped.");
+
+            const string treadmillName = "TestTreadmillPlatform";
+            if (!AlreadyExists(scene, treadmillName))
+            {
+                var mat = GetOrCreateMat(new Color(0.2f, 0.75f, 0.35f));
+                var go = MakeCubePlatform(treadmillName, new Vector3(-6f, 0.5f, 9f), new Vector3(3f, 0.3f, 6f), mat, content);
+                go.AddComponent<BlastFrame.Gameplay.Platforms.TreadmillPlatform>();
+                Debug.Log("[Fix009] Created TestTreadmillPlatform.");
+            }
+            else Debug.Log("[Fix009] TestTreadmillPlatform already exists — skipped.");
+
+            const string springName = "TestSpringBoard";
+            if (!AlreadyExists(scene, springName))
+            {
+                var mat = GetOrCreateMat(new Color(0.9f, 0.2f, 0.25f));
+                var go = MakeCubePlatform(springName, new Vector3(0f, 0.5f, 13f), new Vector3(2f, 0.3f, 2f), mat, content);
+                go.AddComponent<BlastFrame.Gameplay.Platforms.SpringBoard>();
+                Debug.Log("[Fix009] Created TestSpringBoard.");
+            }
+            else Debug.Log("[Fix009] TestSpringBoard already exists — skipped.");
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Debug.Log("[Fix009] TestLevel saved with all four test platforms.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/010 - Add Audio Manager To Core")]
+        private static void Fix010()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            if (Object.FindFirstObjectByType<BlastFrame.Audio.AudioManager>() != null)
+            {
+                Debug.LogWarning("[Fix010] AudioManager already exists in Core — nothing to do.");
+                return;
+            }
+
+            var go = new GameObject("AudioManager");
+            go.AddComponent<BlastFrame.Audio.AudioManager>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = go;
+            EditorGUIUtility.PingObject(go);
+            Debug.Log("[Fix010] AudioManager added to Core. MANUAL: assign an AudioMixer asset + SFX/Music groups " +
+                      "in the Inspector (mixer creation is not scriptable). Expose params MasterVolume/MusicVolume/SfxVolume.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/014 - Place Test Turrets In TestLevel")]
+        private static void Fix014()
+        {
+            static void EnsureAssetFolder(string assetPath)
+            {
+                var parts = assetPath.Split('/');
+                string cur = parts[0];
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    string next = cur + "/" + parts[i];
+                    if (!AssetDatabase.IsValidFolder(next))
+                        AssetDatabase.CreateFolder(cur, parts[i]);
+                    cur = next;
+                }
+            }
+
+            static GameObject BuildProjectilePrefab014(string path, string compTypeName)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = System.IO.Path.GetFileNameWithoutExtension(path);
+                go.transform.localScale = Vector3.one * 0.3f;
+
+                var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+                rb.isKinematic = true;
+                rb.useGravity = false;
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+
+                var col = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
+                col.isTrigger = true;
+
+                var type = System.Type.GetType(compTypeName + ", Assembly-CSharp");
+                if (type != null) go.AddComponent(type);
+
+                var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+                Object.DestroyImmediate(go);
+                return prefab;
+            }
+
+            static BlastFrame.Core.Entities.EntityDefinitionSO EnsureEntityDef014(
+                string assetPath, string id, GameObject prefab)
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Entities.EntityDefinitionSO>(assetPath);
+                if (existing != null) return existing;
+
+                var so = ScriptableObject.CreateInstance<BlastFrame.Core.Entities.EntityDefinitionSO>();
+                AssetDatabase.CreateAsset(so, assetPath);
+                var ser = new SerializedObject(so);
+                ser.FindProperty("id").stringValue = id;
+                ser.FindProperty("prefab").objectReferenceValue = prefab;
+                ser.ApplyModifiedPropertiesWithoutUndo();
+                AssetDatabase.SaveAssets();
+                return so;
+            }
+
+            static bool HasPoolEntry014(SerializedProperty entriesProp, string defId)
+            {
+                for (int i = 0; i < entriesProp.arraySize; i++)
+                {
+                    var elem = entriesProp.GetArrayElementAtIndex(i);
+                    var defProp = elem.FindPropertyRelative("definition");
+                    if (defProp.objectReferenceValue is BlastFrame.Core.Entities.EntityDefinitionSO d && d.Id == defId)
+                        return true;
+                }
+                return false;
+            }
+
+            static void AddPoolEntry014(SerializedProperty entriesProp,
+                BlastFrame.Core.Entities.EntityDefinitionSO def, int prewarm, int expand)
+            {
+                int idx = entriesProp.arraySize;
+                entriesProp.InsertArrayElementAtIndex(idx);
+                var elem = entriesProp.GetArrayElementAtIndex(idx);
+                elem.FindPropertyRelative("definition").objectReferenceValue = def;
+                elem.FindPropertyRelative("prewarmCount").intValue = prewarm;
+                elem.FindPropertyRelative("expandIncrement").intValue = expand;
+            }
+
+            EnsureAssetFolder("Assets/Prefabs/Projectiles");
+            EnsureAssetFolder("Assets/ScriptableObjects/Entities");
+            EnsureAssetFolder("Assets/ScriptableObjects/Pooling");
+
+            const string missilePrefabPath = "Assets/Prefabs/Projectiles/EnemyMissile.prefab";
+            const string arcPrefabPath     = "Assets/Prefabs/Projectiles/ArcProjectile.prefab";
+
+            var missilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(missilePrefabPath)
+                                ?? BuildProjectilePrefab014(missilePrefabPath, "BlastFrame.Gameplay.Projectiles.EnemyMissile");
+            var arcPrefab     = AssetDatabase.LoadAssetAtPath<GameObject>(arcPrefabPath)
+                                ?? BuildProjectilePrefab014(arcPrefabPath, "BlastFrame.Gameplay.Projectiles.ArcProjectile");
+
+            var missileDef = EnsureEntityDef014("Assets/ScriptableObjects/Entities/EnemyMissile.asset", BlastFrame.Core.PoolIds.EnemyMissile, missilePrefab);
+            var arcDef     = EnsureEntityDef014("Assets/ScriptableObjects/Entities/ArcProjectile.asset", BlastFrame.Core.PoolIds.ArcProjectile, arcPrefab);
+
+            const string poolConfigPath = "Assets/ScriptableObjects/Pooling/PoolConfig.asset";
+            var poolConfig = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Pooling.PoolConfigSO>(poolConfigPath);
+            if (poolConfig == null)
+            {
+                poolConfig = ScriptableObject.CreateInstance<BlastFrame.Core.Pooling.PoolConfigSO>();
+                AssetDatabase.CreateAsset(poolConfig, poolConfigPath);
+                AssetDatabase.SaveAssets();
+            }
+
+            var pcSo = new SerializedObject(poolConfig);
+            var entriesProp = pcSo.FindProperty("entries");
+            if (!HasPoolEntry014(entriesProp, BlastFrame.Core.PoolIds.EnemyMissile)) AddPoolEntry014(entriesProp, missileDef, 12, 6);
+            if (!HasPoolEntry014(entriesProp, BlastFrame.Core.PoolIds.ArcProjectile)) AddPoolEntry014(entriesProp, arcDef, 8, 4);
+            pcSo.ApplyModifiedPropertiesWithoutUndo();
+            AssetDatabase.SaveAssets();
+
+            var coreScene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Additive);
+            BlastFrame.Core.Pooling.PoolManager poolMgr = null;
+            foreach (var root in coreScene.GetRootGameObjects())
+            {
+                poolMgr = root.GetComponentInChildren<BlastFrame.Core.Pooling.PoolManager>(true);
+                if (poolMgr != null) break;
+            }
+            if (poolMgr == null)
+            {
+                var pmGo = new GameObject("PoolManager");
+                UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(pmGo, coreScene);
+                poolMgr = pmGo.AddComponent<BlastFrame.Core.Pooling.PoolManager>();
+            }
+            var pmSo = new SerializedObject(poolMgr);
+            var configProp = pmSo.FindProperty("config");
+            if (configProp.objectReferenceValue == null)
+            {
+                configProp.objectReferenceValue = poolConfig;
+                pmSo.ApplyModifiedPropertiesWithoutUndo();
+            }
+            EditorSceneManager.MarkSceneDirty(coreScene);
+            EditorSceneManager.SaveScene(coreScene);
+            EditorSceneManager.CloseScene(coreScene, true);
+
+            var registry = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Entities.EntityRegistrySO>(
+                "Assets/ScriptableObjects/Entities/EntityRegistry.asset");
+
+            var testScene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+            Transform contentParent = null;
+            foreach (var root in testScene.GetRootGameObjects())
+                if (root.name == "Content") { contentParent = root.transform; break; }
+
+            GameObject PlaceTurret014(string goName, Vector3 position, System.Type behaviorType)
+            {
+                foreach (var root in testScene.GetRootGameObjects())
+                {
+                    if (root.name == goName) return null;
+                    if (contentParent != null && contentParent.Find(goName) != null) return null;
+                }
+
+                var turret = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                turret.name = goName;
+                turret.transform.position = position;
+                turret.transform.localScale = new Vector3(1f, 0.5f, 1f);
+
+                var barrel = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                barrel.name = "Barrel";
+                barrel.transform.SetParent(turret.transform, false);
+                barrel.transform.localPosition = new Vector3(0f, 0.6f, 0.6f);
+                barrel.transform.localScale = new Vector3(0.2f, 0.2f, 0.8f);
+
+                var muzzleGo = new GameObject("Muzzle");
+                muzzleGo.transform.SetParent(barrel.transform, false);
+                muzzleGo.transform.localPosition = new Vector3(0f, 0f, 0.5f);
+
+                turret.AddComponent<BlastFrame.Gameplay.Enemies.EnemyStats>();
+                var core = turret.AddComponent<BlastFrame.Gameplay.Enemies.EnemyCore>();
+                var behavior = turret.AddComponent(behaviorType) as MonoBehaviour;
+
+                var coreSo = new SerializedObject(core);
+                coreSo.FindProperty("entityRegistry").objectReferenceValue = registry;
+                coreSo.ApplyModifiedPropertiesWithoutUndo();
+
+                var behSo = new SerializedObject(behavior);
+                behSo.FindProperty("entityRegistry").objectReferenceValue = registry;
+                behSo.FindProperty("muzzle").objectReferenceValue = muzzleGo.transform;
+                behSo.ApplyModifiedPropertiesWithoutUndo();
+
+                if (contentParent != null) turret.transform.SetParent(contentParent, true);
+                return turret;
+            }
+
+            PlaceTurret014("MissileTurret_Test", new Vector3(-8f, 1f, 8f), typeof(BlastFrame.Gameplay.Enemies.EnemyBehaviorMissileTurret));
+            PlaceTurret014("ArcPredictTurret_Test", new Vector3(8f, 1f, 8f), typeof(BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict));
+
+            EditorSceneManager.MarkSceneDirty(testScene);
+            EditorSceneManager.SaveScene(testScene);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = poolConfig;
+            EditorGUIUtility.PingObject(poolConfig);
+            Debug.Log("[Fix014] Enemy projectiles, pools, PoolManager, and two test turrets placed. Idempotent.");
+        }
     }
 }

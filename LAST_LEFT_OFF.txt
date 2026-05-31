@@ -1,59 +1,38 @@
-LAST LEFT OFF — 2026-05-18 (parked — done for the night)
+LAST LEFT OFF — 2026-05-31
 
 LAST ACTION:
-Compile gate (step A) passed. Iterated on dash via build feedback:
-no air-dash (ground-only initiation; dash-jump still carries momentum),
-controller dash moved to East button (B/Circle), dash duration 0.18→0.72,
-dash speed 22→15.4. Fixed a compile error (EnemyCore using in PlayerProjectile).
+Built the entire design doc as modular, layerable features. Hand-wrote the
+foundation (core framework, Variable SOs, events, pooling, registries, services,
+input wrapper, kinematic Player + FP camera, 4 movement modules, enemy/combat/
+charge contracts). Generated 11 feature clusters (platforms, audio, combat, HUD,
+enemies/turrets, powerups, rooms, level/run, HQ/economy/shop, bosses, save) in
+parallel against that contract. Assembled ImplementFix.cs with 21 numbered fixes
+(001-021) and wrote Assets/Features.md (the test guide). Verified: all 21 fixes
+present once, braces balanced across 90 scripts, cross-feature contracts + every
+SerializedObject field name checked against the runtime scripts.
 
 CURRENT STATE:
-- Step A (compile) DONE. Step B (verify movement) IN PROGRESS.
-- All movement/input code compiles. Combat code written but Fixes 011-013 not
-  yet run and no test content placed.
-- IMPORTANT: dash stat changes are code DEFAULTS only. The existing Player in
-  Level01 has serialized values that will NOT auto-update — must set them in
-  the Inspector (see pending steps).
+- All code is committed/pushed on branch claude/modular-game-features-1339D.
+- NOTHING has been run/tested in Unity yet — the dev runs the fixes in order.
+- HARD PREREQUISITE (Step 0 in Features.md): project will NOT compile until
+  "Generate C# Class" is enabled on Assets/InputSystem_Actions.inputactions.
+  Also: Newtonsoft.Json was added to manifest; import TMP Essentials when prompted.
+- Durable docs: Assets/Features.md (test guide, READ THIS), Assets/GameInfo.md
+  (component/setup/gotcha reference), Assets/GameDesign.md (design log).
 
 NEXT STEP:
-Set the Player's PlayerStats dash fields in the Inspector, rebuild, finish the
-step-B movement checklist, then proceed to C (combat + pools).
+In Unity: do Step 0 (enable input codegen), let it compile, then run fixes 001-008
+in order, play-testing the player after each. Then layer 009-021 as desired.
+Tune movement feel (dash distance, jump height) on the Player's PlayerStats.
 
-PENDING MANUAL STEPS (ordered):
-
-  B. FINISH MOVEMENT VERIFY
-  [ ] Level01 > select Player > PlayerStats: Dash Speed = 15.4,
-      Dash Duration = 0.72. (Earlier 0.36 edit is superseded by 0.72.) Save Level01.
-  [ ] Core > GameManager: confirm Target Frame Rate = 144.
-  [ ] Build & Run (Development Build). Verify: 4-unit jump clears Ledge_TooHigh;
-      variable jump; dash is ground-only (no air dash); dash→jump still carries
-      momentum; dash feels slower/longer (~11m); controller dash = B/Circle;
-      wall jump straight off ~0.5s then steerable; look full range w/ VSync;
-      cursor hidden.
-  [ ] Note any feel issues. Open Q: dash distance grew to ~11m (was ~8m) — decide
-      if that's wanted or drop speed to ~11 m/s to hold distance constant.
-
-  C. COMBAT + POOLS
-  [ ] Fix 011 - Build Combat Prefabs And Pools (wires Core, saves Core)
-  [ ] Open Level01
-  [ ] Fix 012 - Add PlayerShooter To Camera
-  [ ] Fix 013 - Add Charge Bar To HUD
-  [ ] Ctrl+S Level01
-
-  D. PLACE TEST CONTENT (Level01 open)
-  [ ] Tools > Blast Frame > Platforms > Moving / Rotating / Treadmill / Spring
-      Board (position them; for Moving, drag child Waypoint_A/B)
-  [ ] Tools > Blast Frame > Enemies > Missile Turret + Arc Predict Turret
-  [ ] Position all; Ctrl+S Level01
-
-  E. PLAY TEST FROM CORE
-  [ ] Verify shooting (tap/charge/AoE), both turrets, all platforms.
-  [ ] Note feel/tuning issues.
+PENDING MANUAL STEPS (none run yet — all of them):
+- Step 0: enable Generate C# Class on InputSystem_Actions; import TMP Essentials.
+- Run Tools > Blast Frame > Implement Fix > 001 ... 021 in order (see Features.md).
+- Fix 010 (Audio): create + assign an AudioMixer by hand (not scriptable).
+- Fix 013 (HUD): import TMP Essential Resources if prompted.
+- Bosses (Fix 020): configure BossCore phase thresholds in the Inspector.
 
 BLOCKERS / OPEN QUESTIONS:
-- Open Q above re: dash distance (~11m) — confirm or retune.
-- No in-game quit (Alt+F4 to exit builds). Optional future: Pause input action
-  → Esc unlocks cursor + quits.
-- EnemyCore Destroys on death (turrets placed, not pooled) — fine for now.
-
-DURABLE DOCS CURRENT: Assets/GameInfo.md (setup/gotchas) and
-Assets/GameDesign.md (design log) — read those for detail; this is the needle.
+- None blocking. Code is unverified-in-Unity (no compiler was available here);
+  the layered fix order is designed so each feature is testable in isolation, so
+  any issue should surface at a specific fix rather than all at once.
