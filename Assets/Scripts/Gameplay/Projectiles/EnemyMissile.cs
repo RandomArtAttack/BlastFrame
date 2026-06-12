@@ -33,6 +33,7 @@ namespace BlastFrame.Gameplay.Projectiles
         private Vector3 _direction;
         private float _currentSpeed;
         private float _remainingLifetime;
+        private float _collisionGraceUntil;
         private bool _despawned;
 
         // ----- MonoBehaviour lifecycle ---------------------------------------------------------
@@ -65,6 +66,7 @@ namespace BlastFrame.Gameplay.Projectiles
             _despawned = false;
             _currentSpeed = startSpeed.Value;
             _remainingLifetime = lifetime.Value;
+            _collisionGraceUntil = Time.time + 0.15f;
         }
 
         public void OnDespawn()
@@ -93,6 +95,7 @@ namespace BlastFrame.Gameplay.Projectiles
         private void OnTriggerEnter(Collider other)
         {
             if (_despawned) return;
+            if (Time.time < _collisionGraceUntil) return;
 
             // Ignore sibling missiles — avoid friendly-fire between simultaneous spawns.
             if (other.TryGetComponent<EnemyMissile>(out _)) return;

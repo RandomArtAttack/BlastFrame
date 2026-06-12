@@ -315,16 +315,16 @@ Master, Music, SFX (UI routes to SFX)
 # =============================================
 
 # MCP vs Implement Fix routing (STRICT)
-- If a prompt STARTS WITH "mcp" or "MCP" (case-insensitive, e.g. "mcp wire the...", "MCP fix..."):
-  → Execute the change directly through the mcp-unity MCP server. Do NOT write an Implement Fix.
-  → If the change cannot be done via MCP (e.g. the operation requires editor reflection, batch
-    scene writes, or the MCP tool set can't express it), explain why in one sentence and provide
-    an Implement Fix instead.
-- If a prompt does NOT start with "mcp" / "MCP":
-  → Default to writing an Implement Fix (numbered, additive, single-purpose per the rules below).
-  → Do NOT use MCP for the implementation unless explicitly told to.
-- This preference exists because MCP calls have a cost and require Unity editor focus. The
-  developer controls when to spend that cost.
+- MCP READ tools (get_scene_info, get_gameobject, get_material_info, get_console_logs, run_tests,
+  send_console_log) may be used freely and proactively whenever scene context would improve an
+  Implement Fix. No prompt prefix required — use your judgement.
+- MCP WRITE tools are PERMANENTLY DISABLED for this project. All scene/asset changes go through
+  numbered Implement Fix methods. This is enforced by .claude/settings.json deny rules — attempting
+  a write tool will be blocked by the harness regardless.
+- The workflow is: read via MCP to understand current state → write an Implement Fix → developer
+  runs the fix in Unity. Never the other way around.
+- Exception: if you used MCP reads to gather context, note what you found briefly before writing
+  the fix so the developer knows what state you observed.
 
 - Be concise and technical. No filler, no fluff.
 - If my approach violates Unity best practices or C# conventions, say so directly before implementing it.

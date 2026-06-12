@@ -436,3 +436,31 @@ The HUD lives on a "HUD" Canvas (Screen Space Overlay) in the Core scene. `HUDCo
 **Setup:** Add Canvas to the HQ/test scene with a VerticalLayoutGroup panel; add ShopUI; assign registry, rowContainer, currencyLabel. No automated fix for the full canvas yet — build manually.
 **Behaviour:** Builds rows at Start from registry. Each row has name, description, cost, owned-status, and Buy button. All refreshes are event-driven (OnCurrencyChanged / onPurchasedEvent) — no Update polling. Cannot-afford rows dim cost to grey and disable Buy. OWNED rows hide Buy and show "OWNED" in green.
 **Gotchas:** rowContainer and registry must be assigned or BuildRows silently no-ops. The onPurchasedEvent is optional but recommended so TestStat purchases reflect immediately in the UI. ContentSizeFitter on rowContainer is needed for auto-height scrolling.
+
+---
+
+## Enemies — Arc-Predict Heavy Mortar Turret
+
+### EnemyBehaviorArcPredict (heavy lob configuration)
+**Namespace:** `BlastFrame.Gameplay.Enemies`
+**File:** `Assets/Scripts/Gameplay/Enemies/EnemyBehaviorArcPredict.cs`
+**Type:** behavior component, stacked on a turret with `EnemyCore` + `EnemyStats`
+**Required SOs:** `entityRegistry` (EntityRegistrySO — wired by Fix 033/034)
+**Required Inspector fields:** `muzzle` (Transform at barrel tip), `barrelPivot` (Transform that pitches on local X)
+**Key behavior:**
+- Body yaws toward the predicted target at `rotationSpeed`; barrel pitches to the HIGH ballistic arc (always ≥ 45°)
+- Projectile fires at constant `EnemyStats.projectileSpeed` along the muzzle's CURRENT facing — the solver steers the barrel, never bypasses it
+- Fires only with line of sight to ANY part of the player (5-point check on collider bounds: center/head/feet/edges)
+- `projectileGravityScale` scales gravity for both solver and projectile (must match or shots miss); `maxLeadTime` caps movement prediction
+**Setup steps:**
+1. Build/name the turret with a child whose name contains "barrel"/"gun"/"cannon"
+2. Run `Tools > Blast Frame > Implement Fix > 034` — adds components, wires registry/muzzle/barrelPivot (creates Muzzle empty at barrel tip if missing)
+3. Run Fix 035 (heavy lob tuning) and Fix 036 (gravity 0.2x) for the mortar feel
+**Gotchas:** Max ballistic reach = v²/(g·scale); at speed 6 + scale 0.2 that's ≈ 18 units — targets beyond get a best-effort 45° lob that lands short. Renaming the barrel child breaks Fix 034's heuristic.
+
+### ArcExplosion
+**Prefab:** `Assets/Prefabs/Projectiles/ArcExplosion.prefab` (created by Fix 035)
+**Pool id:** `PoolIds.ArcExplosion` ("ArcExplosion"), prewarm 4 / expand 2
+**Components:** `AoeExplosion` (radius 1.5, damage 1 — tuned on the prefab, NOT on the turret's EnemyStats)
+**Behavior:** spawned by `ArcProjectile` on any impact; projectile deals NO direct contact damage — all damage is blast radius
+**Gotchas:** `AoeExplosion` damages every `IDamageable` in radius — including other enemies (and the turret itself at point-blank). `EnemyStats.damage` on the turret is currently unused by this projectile path.

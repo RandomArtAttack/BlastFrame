@@ -16,6 +16,7 @@ namespace BlastFrame.Core
         public const string PlayerProjectile = "PlayerProjectile";
         public const string EnemyMissile = "EnemyMissile";
         public const string ArcProjectile = "ArcProjectile";
+        public const string ArcExplosion = "ArcExplosion";
         public const string Explosion = "Explosion";
     }
 

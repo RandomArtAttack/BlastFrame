@@ -4,6 +4,12 @@ Newer entries at the top. Never reorder or delete old entries.
 
 ---
 
+[2026-06-12] — ARC TURRET: HEAVY MORTAR REDESIGN
+The arc-predict turret is now a slow heavy mortar: half turn rate (45°/s), half fire rate (0.5 shots/s), and a projectile that is 3x bigger, travels at half speed (6 m/s), and falls under half gravity for a floaty, readable lob. It only fires with line of sight to any part of the player (5-point visibility check against the player's collider bounds — partial cover does not hide you). The projectile no longer deals contact damage; on impact it spawns a pooled ArcExplosion with a 1.5-unit blast radius (damage tuned on the ArcExplosion prefab, not on the turret's stats). Launch angle is always the high ballistic arc, minimum 45°.
+
+[2026-06-12] — PLAYER MOVEMENT: MEASURED DISTANCES (in-game tested)
+Standing long jump covers 7 Unity units horizontally. A dash covers 10 Unity units. These are real in-game measurements and should be used as the reference grid for level layout — gaps, platforms, and room widths should be designed relative to these values. A gap a skilled player can just barely jump is ~6–7 units; a gap requiring a dash-jump would be ~8–10 units.
+
 [2026-05-31] — HQ / ECONOMY / SHOP: ARCHITECTURE DECISIONS
 Meta-currency (metaCurrency) is the single economy unit: earned per run, spent only at HQ on permanent upgrades. CurrencyManager owns the live wallet and registers as ICurrencyManager; it bootstraps from SaveData if a SaveManager is present and falls back to 0 otherwise, so the shop works without a save system wired. Permanent upgrades are authoring-time SOs (PermanentUpgradeSO) with IntReference cost and FloatReference magnitude — constants by default, optionally driven by Variable SO assets if a designer wants global tuning. ShopManager owns purchase logic and defers ownership persistence to ISaveManager (TryGet — optional), keeping the shop functional even without persistence. ShopUI is fully event-driven: it never polls in Update; OnCurrencyChanged and onPurchasedEvent drive all row refreshes. The "cannot afford" state is a visual dim, not a hidden row, so players can see what they are working toward.
 

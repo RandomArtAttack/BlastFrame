@@ -8,31 +8,52 @@ using BlastFrame.Gameplay.Projectiles;
 namespace BlastFrame.Gameplay.Enemies
 {
     /// <summary>
-    /// Composable behavior: rotates to face the player or the player's predicted straight-line
-    /// future position, then fires an ArcProjectile with a ballistic solution so the shot lands
-    /// on the target ground point. Prediction samples player velocity; if the player is moving
-    /// roughly straight it leads by projectile travel time, otherwise it targets current position.
+    /// Composable behavior: rotates the turret body to face the player (yaw), pitches a barrel
+    /// pivot to visually match the ballistic launch angle (pitch), then fires a pooled ArcProjectile
+    /// that lands on the predicted target ground point under gravity.
     /// </summary>
     public class EnemyBehaviorArcPredict : EnemyBehaviorBase
     {
-        [Tooltip("Child Transform at the barrel tip from which arc projectiles are spawned.")]
+        [Tooltip("Child Transform at the barrel tip from which arc projectiles spawn.")]
         [SerializeField] private Transform muzzle;
 
-        [Tooltip("Degrees per second the turret rotates toward its aim point.")]
+        [Tooltip("Child Transform of the barrel that rotates on its local X-axis to visually " +
+                 "track the launch angle. Pivot point is the transform's own origin. " +
+                 "Optional — leave empty for a turret with no moving barrel.")]
+        [SerializeField] private Transform barrelPivot;
+
+        [Tooltip("Degrees per second the turret body yaws toward its aim point.")]
         [SerializeField] private FloatReference rotationSpeed = new FloatReference(90f);
 
-        [Tooltip("Dot product threshold above which the player is considered to be moving 'roughly straight' and leading is applied. " +
-                 "1 = perfectly straight only, 0.7 ≈ within ±45°. Range [0,1].")]
+        [Tooltip("Degrees per second the barrel pitches toward the computed launch angle.")]
+        [SerializeField] private FloatReference barrelPitchSpeed = new FloatReference(120f);
+
+        [Tooltip("Dot product threshold above which the player is considered to be moving " +
+                 "'roughly straight' and leading is applied. Range [0,1].")]
         [SerializeField] private FloatReference straightThreshold = new FloatReference(0.85f);
 
-        [Tooltip("Minimum horizontal distance to the target before the turret will fire, in metres. Prevents misfires at point-blank.")]
+        [Tooltip("Minimum horizontal distance to the target before the turret fires (metres).")]
         [SerializeField] private FloatReference minFireDistance = new FloatReference(2f);
 
-        [Tooltip("Number of iterations for the iterative lead-time solve (3–5 is plenty).")]
+        [Tooltip("Number of iterations for the iterative lead-time solve (3-5 is plenty).")]
         [SerializeField] private IntReference predictIterations = new IntReference(3);
 
+        [Tooltip("Multiplier on Physics.gravity for this turret's projectiles. 1 = normal, " +
+                 "0.2 = floaty lob with long hang time. The ballistic solver and the projectile " +
+                 "both use this value so shots stay accurate.")]
+        [SerializeField] private FloatReference projectileGravityScale = new FloatReference(1f);
+
+        [Tooltip("Maximum seconds of player-movement lead applied to aim prediction. Caps the " +
+                 "runaway lead that slow, high arcs would otherwise produce (e.g. predicting the " +
+                 "player several rooms away — or behind the turret when they run toward it).")]
+        [SerializeField] private FloatReference maxLeadTime = new FloatReference(1.5f);
+
+        private static readonly RaycastHit[] s_losBuffer = new RaycastHit[32];
+
         private IPoolManager _pool;
+        private Collider _playerCollider;
         private float _fireCooldown;
+        private float _currentBarrelPitchDeg;
         private bool _dead;
 
         // Velocity sampling — two position snapshots.
@@ -60,20 +81,19 @@ namespace BlastFrame.Gameplay.Enemies
         {
             if (_dead || !HasPlayer) return;
 
-            // --- Sample player velocity -------------------------------------------------------
+            // --- Sample player velocity -----------------------------------------------------------
             var playerPos = Player.position;
             if (Time.fixedDeltaTime > 0f)
                 _playerVelocity = (playerPos - _prevPlayerPos) / Time.fixedDeltaTime;
             _prevPlayerPos = playerPos;
 
             var toPlayer = playerPos - transform.position;
-            var rangeSq = Stats.Range * Stats.Range;
-            if (toPlayer.sqrMagnitude > rangeSq) return;
+            if (toPlayer.sqrMagnitude > Stats.Range * Stats.Range) return;
 
-            // --- Predict aim target -----------------------------------------------------------
+            // --- Predict aim target ---------------------------------------------------------------
             var targetPos = PredictTarget(playerPos);
 
-            // Rotate turret (Y-axis only).
+            // --- Turret yaw: rotate body on Y toward target ---------------------------------------
             var flatDir = new Vector3(targetPos.x - transform.position.x, 0f, targetPos.z - transform.position.z);
             if (flatDir.sqrMagnitude > 0.001f)
             {
@@ -82,13 +102,69 @@ namespace BlastFrame.Gameplay.Enemies
                     transform.rotation, targetRot, rotationSpeed.Value * Time.fixedDeltaTime);
             }
 
-            // --- Fire -------------------------------------------------------------------------
-            _fireCooldown -= Time.fixedDeltaTime;
-            if (_fireCooldown <= 0f)
+            // --- Barrel pitch: tilt on local X toward ballistic launch angle ----------------------
+            var targetPitchDeg = -ComputeLaunchAngle(targetPos) * Mathf.Rad2Deg;
+            _currentBarrelPitchDeg = Mathf.MoveTowards(
+                _currentBarrelPitchDeg, targetPitchDeg, barrelPitchSpeed.Value * Time.fixedDeltaTime);
+            if (barrelPivot != null)
+                barrelPivot.localEulerAngles = new Vector3(_currentBarrelPitchDeg, 0f, 0f);
+
+            // --- Fire (only with line of sight to any part of the player) -------------------------
+            _fireCooldown = Mathf.Max(_fireCooldown - Time.fixedDeltaTime, 0f);
+            if (_fireCooldown <= 0f && HasLineOfSight())
             {
                 Fire(targetPos);
                 _fireCooldown = Stats.FireRate > 0f ? 1f / Stats.FireRate : 1f;
             }
+        }
+
+        // True if an unobstructed ray exists from the turret center to ANY sampled point on the
+        // player's collider bounds (center, head, feet, left edge, right edge) — so a player only
+        // partially poking out from cover is still a valid target.
+        private bool HasLineOfSight()
+        {
+            var player = Player;
+            if (player == null) return false;
+
+            if (_playerCollider == null)
+            {
+                _playerCollider = player.GetComponent<Collider>();
+                if (_playerCollider == null) _playerCollider = player.GetComponentInChildren<Collider>();
+            }
+
+            var origin = transform.position;
+            var b = _playerCollider != null
+                ? _playerCollider.bounds
+                : new Bounds(player.position, new Vector3(1f, 2f, 1f));
+
+            var toCenter = b.center - origin;
+            var side = Vector3.Cross(toCenter, Vector3.up);
+            side = side.sqrMagnitude > 0.001f ? side.normalized : Vector3.right;
+            var lateral = Mathf.Max(b.extents.x, b.extents.z) * 0.9f;
+            var vertical = b.extents.y * 0.9f;
+
+            return IsPointVisible(origin, b.center, player)
+                || IsPointVisible(origin, b.center + Vector3.up * vertical, player)
+                || IsPointVisible(origin, b.center - Vector3.up * vertical, player)
+                || IsPointVisible(origin, b.center + side * lateral, player)
+                || IsPointVisible(origin, b.center - side * lateral, player);
+        }
+
+        private bool IsPointVisible(Vector3 origin, Vector3 point, Transform player)
+        {
+            var delta = point - origin;
+            var dist = delta.magnitude;
+            if (dist < 0.001f) return true;
+            var dir = delta / dist;
+
+            int n = Physics.RaycastNonAlloc(origin, dir, s_losBuffer, dist, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++)
+            {
+                var t = s_losBuffer[i].transform;
+                if (t.IsChildOf(transform) || t.IsChildOf(player)) continue; // self / target — not blockers
+                if (s_losBuffer[i].distance < dist - 0.05f) return false;    // solid geometry in the way
+            }
+            return true;
         }
 
         // Returns the ground-level target position — either predicted or current player foot.
@@ -97,50 +173,34 @@ namespace BlastFrame.Gameplay.Enemies
             var spawnPos = muzzle != null ? muzzle.position : transform.position;
             var launchSpeed = Stats.ProjectileSpeed;
 
-            // Flatten velocity to horizontal to gauge straight-line motion.
             var flatVel = new Vector3(_playerVelocity.x, 0f, _playerVelocity.z);
-            var flatSpeed = flatVel.magnitude;
-
-            // Ground position = player position projected onto y=playerPos.y (roughly feet level).
             var groundTarget = new Vector3(playerPos.x, playerPos.y, playerPos.z);
 
-            if (flatSpeed < 0.5f) return groundTarget; // Standing still — no lead.
+            if (flatVel.magnitude < 0.5f) return groundTarget;
 
-            // Check how straight the player is moving (compare frame-to-frame direction consistency
-            // by using normalized velocity direction dot against itself — always 1. Instead, check
-            // whether the actual velocity direction is consistent by comparing current and a damped
-            // direction. Since we only have one frame here, use the flat speed threshold and the
-            // straight-threshold as a proxy: if the player is running at > 0.5 m/s we attempt to
-            // lead regardless; straightThreshold gates how confidently we lead (controlled by
-            // designer). For the simplest correct implementation, lead whenever flat speed > 0.5).
-            //
-            // Iterative solve: estimate travel time → move target → re-estimate angle → repeat.
             var leadPos = groundTarget;
             for (int i = 0; i < predictIterations.Value; i++)
             {
                 var flatDist = new Vector3(leadPos.x - spawnPos.x, 0f, leadPos.z - spawnPos.z).magnitude;
                 if (launchSpeed < 0.001f) break;
 
-                // Rough ballistic travel time estimate (horizontal range / horizontal speed component).
-                // Use physics: max range at 45° = v²/g. Travel time ≈ dist / (v * cos45°).
-                var travelTime = flatDist / (launchSpeed * 0.707f);
-                travelTime = Mathf.Clamp(travelTime, 0f, 5f);
-
+                // Travel time of a ballistic arc: t = R / (v·cosθ), using the actual high-arc angle
+                // this shot will be fired at (the iterative loop re-solves as the lead point moves).
+                // Capped at maxLeadTime so slow lobs never predict absurdly far ahead.
+                var cosTheta = Mathf.Max(Mathf.Cos(ComputeLaunchAngle(leadPos)), 0.1f);
+                var travelTime = Mathf.Clamp(flatDist / (launchSpeed * cosTheta), 0f, maxLeadTime.Value);
                 var predicted = new Vector3(
                     playerPos.x + _playerVelocity.x * travelTime,
                     playerPos.y,
                     playerPos.z + _playerVelocity.z * travelTime);
 
-                // Only apply lead if the player is moving "roughly straight" — check if the velocity
-                // direction is consistent with the direction toward the predicted point.
                 var toPredicted = new Vector3(predicted.x - spawnPos.x, 0f, predicted.z - spawnPos.z);
                 if (toPredicted.sqrMagnitude > 0.001f && flatVel.sqrMagnitude > 0.001f)
                 {
-                    var dot = Vector3.Dot(flatVel.normalized, toPredicted.normalized);
-                    if (dot >= straightThreshold.Value)
+                    if (Vector3.Dot(flatVel.normalized, toPredicted.normalized) >= straightThreshold.Value)
                         leadPos = predicted;
                     else
-                        break; // Player not heading straight toward prediction — stop leading.
+                        break;
                 }
                 else
                 {
@@ -151,66 +211,57 @@ namespace BlastFrame.Gameplay.Enemies
             return leadPos;
         }
 
+        // Solves the HIGH-arc ballistic launch angle (radians) required to land on targetPos.
+        // Ballistic solve: tanθ = (v² ± √(v⁴ − g(gR² + 2·dy·v²))) / (gR). The two roots straddle
+        // 45° — taking the + root gives the lobbed mortar arc, which is ≥ 45° for any target at or
+        // above max-range. Clamped to ≥ 45° for the steep-downhill edge case, and falls back to 45°
+        // (max range) when the target is unreachable at the current projectile speed.
+        private float ComputeLaunchAngle(Vector3 targetPos)
+        {
+            const float minAngle = 45f * Mathf.Deg2Rad;
+
+            var spawnPos = muzzle != null ? muzzle.position : transform.position;
+            var flatOffset = new Vector3(targetPos.x - spawnPos.x, 0f, targetPos.z - spawnPos.z);
+            var R = flatOffset.magnitude;
+            if (R < 0.001f) return minAngle;
+
+            var g  = Mathf.Abs(Physics.gravity.y) * Mathf.Max(projectileGravityScale.Value, 0.01f);
+            var dy = targetPos.y - spawnPos.y;
+            var v  = Stats.ProjectileSpeed;
+            var v2 = v * v;
+
+            var disc = v2 * v2 - g * (g * R * R + 2f * dy * v2);
+            if (disc < 0f) return minAngle;
+
+            var highTan = (v2 + Mathf.Sqrt(disc)) / (g * R);
+            return Mathf.Max(Mathf.Atan(highTan), minAngle);
+        }
+
         private void Fire(Vector3 targetPos)
         {
             if (_pool == null) return;
 
-            var spawnPos = muzzle != null ? muzzle.position : transform.position;
-            var launchSpeed = Stats.ProjectileSpeed;
-
+            var spawnPos  = muzzle != null ? muzzle.position : transform.position;
             var flatOffset = new Vector3(targetPos.x - spawnPos.x, 0f, targetPos.z - spawnPos.z);
-            var horizontalDist = flatOffset.magnitude;
+            if (flatOffset.magnitude < minFireDistance.Value) return;
 
-            if (horizontalDist < minFireDistance.Value) return;
+            // Constant muzzle velocity along the barrel's CURRENT physical facing — body yaw and
+            // barrel pitch decide where the shot goes. The ballistic solver only steers the barrel;
+            // it never bypasses it. A barrel still swinging toward the target fires off-aim, which
+            // is exactly the readable behavior we want.
+            var aimDir = muzzle != null ? muzzle.forward
+                       : barrelPivot != null ? barrelPivot.forward
+                       : transform.forward;
+            var launchVel = aimDir * Stats.ProjectileSpeed;
 
-            // Ballistic angle solve: target (range R, height difference h), fixed speed v.
-            // Using the standard ballistic equations to solve for launch angle θ.
-            // R = (v² sin2θ) / g  and  h = R tanθ - g R² / (2 v² cos²θ)
-            // For a height-aware solution:
-            //   let g = Physics.gravity.magnitude, dx = horizontal dist, dy = height diff.
-            // Closed-form (two solutions): pick the lower angle for a flatter, faster trajectory.
-            var g = Mathf.Abs(Physics.gravity.y);
-            var dy = targetPos.y - spawnPos.y;
-            var v = launchSpeed;
-            var v2 = v * v;
-
-            // Discriminant of the two-angle solution.
-            var disc = v2 * v2 - g * (g * horizontalDist * horizontalDist + 2f * dy * v2);
-
-            float launchAngle;
-            if (disc < 0f)
-            {
-                // Target is out of reach at this speed — aim at 45° as best effort.
-                launchAngle = 45f * Mathf.Deg2Rad;
-            }
-            else
-            {
-                var sqrtDisc = Mathf.Sqrt(disc);
-                // Two solutions: (v² ± √disc) / (g * R). Choose the lower angle (minus).
-                var tan1 = (v2 - sqrtDisc) / (g * horizontalDist);
-                var tan2 = (v2 + sqrtDisc) / (g * horizontalDist);
-                // Lower angle = smaller tangent.
-                var chosenTan = Mathf.Abs(tan1) <= Mathf.Abs(tan2) ? tan1 : tan2;
-                launchAngle = Mathf.Atan(chosenTan);
-            }
-
-            // Build the launch velocity vector.
-            var flatDir = horizontalDist > 0.001f ? flatOffset / horizontalDist : transform.forward;
-            var cosA = Mathf.Cos(launchAngle);
-            var sinA = Mathf.Sin(launchAngle);
-            var launchVelocity = (flatDir * cosA + Vector3.up * sinA) * v;
-
-            var spawnRot = Quaternion.LookRotation(launchVelocity.normalized, Vector3.up);
-            var go = _pool.Spawn(PoolIds.ArcProjectile, spawnPos, spawnRot);
+            var go = _pool.Spawn(PoolIds.ArcProjectile, spawnPos,
+                                 Quaternion.LookRotation(aimDir, Vector3.up));
             if (go == null) return;
 
             if (go.TryGetComponent<ArcProjectile>(out var proj))
-                proj.Initialize(Stats.Damage, launchVelocity);
+                proj.Initialize(Stats.Damage, launchVel, projectileGravityScale.Value);
         }
 
-        private void OnCoreDeathHandler()
-        {
-            _dead = true;
-        }
+        private void OnCoreDeathHandler() => _dead = true;
     }
 }

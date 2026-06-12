@@ -1,34 +1,17 @@
-LAST LEFT OFF — 2026-06-11 19:50
-
-LAST ACTION:
-Drove all 21 Implement Fixes through the new mcp-unity MCP server. Core.unity and
-TestLevel.unity now exist and are fully assembled as the all-systems test bed:
-Core = GameManager, Bootstrap, PlayerInputHandler, Player(+FP camera, shooter),
-PoolManager, AudioManager, RunManager, CurrencyManager, ShopManager, SaveManager,
-EventSystem, HUD (HealthText/DashRing/ChargeBar). TestLevel = geometry, 4 platforms,
-2 turrets, heal pickup, RoomSlot_Demo (3 variants), TestBoss, Debug_TestStat.
-Fixed 3 bugs in ImplementFix.cs that aborted fixes 011/013/014 on first run
-(editor fake-null `GetComponent ?? AddComponent` for Rigidbody, and HUD widgets
-reading RectTransform off plain GameObjects). TMP Essentials imported.
-Wrote TestStat.cs (key harness: F1 run toggle, F2 +100 currency, F3 buy
-ExtraHealth, F4 save, F5 load, F6 status). Project compiles with 0 errors/warnings.
-
-CURRENT STATE:
-- All 21 fixes ran to completion with their [FixNNN] success logs; scenes saved.
-- NOTHING play-tested yet — assembled via editor scripts only.
-- mcp-unity gotcha: requests time out unless Unity editor has focus + real input
-  (see Claude memory note; jiggle workaround exists).
-
-NEXT STEP:
-Open Assets/Scenes/Core.unity, press Play, and run the Features.md test pass
-(movement first, then combat/HUD, then F1-F6 service tests via Debug_TestStat).
-
-PENDING MANUAL STEPS:
-- Wire EntityRegistry.asset into Debug_TestStat > TestStat > Entity Registry (TestLevel).
-- Fix 010: create an AudioMixer (Master/Music/SFX, expose MasterVolume/MusicVolume/
-  SfxVolume) and assign it on Core's AudioManager.
-- Fix 020: configure BossCore phase thresholds on TestBoss in the Inspector.
-
-BLOCKERS / OPEN QUESTIONS:
-- None. One stale console error from a failed MCP field-set attempt
-  ("Error converting value to type EntityRegistrySO") can be ignored/cleared.
+LAST LEFT OFF — 2026-06-12 (end of day)
+LAST ACTION: Arc turret "turret Shooter" finished as heavy mortar: barrel-driven constant-velocity
+  firing (shot follows the physical barrel, solver only steers it), LOS-gated fire (5-point check),
+  high-arc ballistics (min 45°), gravity 0.2x, 3x projectile exploding in ArcExplosion (r=1.5).
+  Also: DevTex triplanar world-projection shader (2 units/tile), MCP read-only policy enforced via
+  .claude/settings.json (writes denied — Implement Fix is the only write path).
+CURRENT STATE: Turret works in TestLevel per dev playtest iterations. Fixes 030-036 written;
+  dev confirmed running 031/034/035; 036 (gravity 0.2) written at session end.
+NEXT STEP: Verify Fix036 was run (turret projectileGravityScale should be 0.2, not 0.5) —
+  re-run it if the lob still feels heavy. Then playtest LOS gating around corners.
+PENDING MANUAL STEPS: possibly Tools > Blast Frame > Implement Fix > 036 (unconfirmed);
+  Fix030 (URP Lit convert) superseded by 031 (triplanar) — never needs running.
+BLOCKERS / OPEN QUESTIONS: mcp-unity get_gameobject is broken in this project (bridge fails
+  sending the response — "WebSocket error: An error has occurred in sending data"); use scene-file
+  grep or in-fix discovery instead. Explosion is faction-agnostic (hurts other enemies/turret) —
+  dev hasn't decided if that's wanted. EnemyStats.damage unused by arc projectile (explosion
+  prefab owns damage).

@@ -2270,5 +2270,606 @@ namespace BlastFrame.EditorTools
             EditorGUIUtility.PingObject(stats.gameObject);
             Debug.Log("[Fix029] Player airDrag 2 → 0.2 in Core.unity (inherited momentum now survives the jump arc).");
         }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/031 - Convert DevTex materials to Triplanar shader")]
+        private static void Fix031()
+        {
+            const string shaderPath = "Assets/DevTex/DevTexTriplanar.shader";
+            AssetDatabase.Refresh();
+
+            var shader = AssetDatabase.LoadAssetAtPath<Shader>(shaderPath);
+            if (shader == null)
+            {
+                Debug.LogError("[Fix031] DevTexTriplanar.shader not found at " + shaderPath + " — make sure the file exists and Unity has imported it.");
+                return;
+            }
+
+            string[] guids = AssetDatabase.FindAssets("t:Material", new[] { "Assets/DevTex/Materials" });
+            int converted = 0, skipped = 0;
+
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (mat == null) { skipped++; continue; }
+
+                // Read existing properties before changing shader (supports both Standard and URP Lit naming)
+                Texture albedoTex = mat.HasProperty("_BaseMap")  ? mat.GetTexture("_BaseMap")
+                                  : mat.HasProperty("_MainTex")  ? mat.GetTexture("_MainTex")
+                                  : null;
+
+                Color albedoColor = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor")
+                                  : mat.HasProperty("_Color")     ? mat.GetColor("_Color")
+                                  : Color.white;
+
+                float metallic   = mat.HasProperty("_Metallic")   ? mat.GetFloat("_Metallic")   : 0f;
+                // Standard uses _Glossiness; URP Lit uses _Smoothness
+                float smoothness = mat.HasProperty("_Smoothness")  ? mat.GetFloat("_Smoothness")
+                                 : mat.HasProperty("_Glossiness")  ? mat.GetFloat("_Glossiness")
+                                 : 0.5f;
+
+                Texture emissionTex   = mat.HasProperty("_EmissionMap")   ? mat.GetTexture("_EmissionMap") : null;
+                Color   emissionColor = mat.HasProperty("_EmissionColor") ? mat.GetColor("_EmissionColor") : Color.black;
+
+                // Detect transparency: trigger/zone materials have renderQueue >= 3000 or _Mode == 2
+                bool isTransparent = mat.renderQueue >= 3000
+                    || (mat.HasProperty("_Mode")    && Mathf.Approximately(mat.GetFloat("_Mode"),    2f))
+                    || (mat.HasProperty("_Surface") && Mathf.Approximately(mat.GetFloat("_Surface"), 1f));
+
+                // Swap to triplanar shader and write properties
+                mat.shader = shader;
+
+                mat.SetTexture("_MainTex",      albedoTex);
+                mat.SetColor  ("_Color",        albedoColor);
+                mat.SetFloat  ("_Tiling",       2.0f);
+                mat.SetFloat  ("_Metallic",     metallic);
+                mat.SetFloat  ("_Smoothness",   smoothness);
+                mat.SetTexture("_EmissionMap",  emissionTex);
+                mat.SetColor  ("_EmissionColor", emissionColor);
+
+                if (isTransparent)
+                {
+                    mat.SetFloat("_SrcBlend", 5f);  // SrcAlpha
+                    mat.SetFloat("_DstBlend", 10f); // OneMinusSrcAlpha
+                    mat.SetFloat("_ZWrite",   0f);
+                    mat.renderQueue = 3000;
+                }
+                else
+                {
+                    mat.SetFloat("_SrcBlend", 1f);  // One
+                    mat.SetFloat("_DstBlend", 0f);  // Zero
+                    mat.SetFloat("_ZWrite",   1f);
+                    mat.renderQueue = 2000;
+                }
+
+                EditorUtility.SetDirty(mat);
+                converted++;
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Fix031] DevTex triplanar: {converted} materials converted (Tiling=1.0), {skipped} skipped.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/032 - Wire barrel pivot on ArcPredictTurret_Test")]
+        private static void Fix032()
+        {
+            // EnemyBehaviorArcPredict now has a barrelPivot field. The test turret's "Barrel" child
+            // already exists (placed by Fix014) and is the right transform to pitch on local-X.
+            // This fix wires it in without touching anything else.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+
+            GameObject turretGo = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                turretGo = root.name == "ArcPredictTurret_Test" ? root : null;
+                if (turretGo != null) break;
+
+                // Also search one level deep (in case it is under a Content parent).
+                var found = root.transform.Find("ArcPredictTurret_Test");
+                if (found != null) { turretGo = found.gameObject; break; }
+            }
+
+            if (turretGo == null)
+            {
+                Debug.LogError("[Fix032] ArcPredictTurret_Test not found in TestLevel — run Fix014 first.");
+                return;
+            }
+
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(out var behavior))
+            {
+                Debug.LogError("[Fix032] EnemyBehaviorArcPredict not found on ArcPredictTurret_Test.");
+                return;
+            }
+
+            var barrelTransform = turretGo.transform.Find("Barrel");
+            if (barrelTransform == null)
+            {
+                Debug.LogError("[Fix032] No 'Barrel' child found on ArcPredictTurret_Test — expected from Fix014.");
+                return;
+            }
+
+            var so = new SerializedObject(behavior);
+            var pivotProp = so.FindProperty("barrelPivot");
+            if (pivotProp == null)
+            {
+                Debug.LogError("[Fix032] 'barrelPivot' property not found on EnemyBehaviorArcPredict — ensure the script compiled.");
+                return;
+            }
+
+            if (pivotProp.objectReferenceValue != null)
+            {
+                Debug.LogWarning("[Fix032] barrelPivot is already set — skipping to avoid overwriting a hand-tuned value.");
+                return;
+            }
+
+            pivotProp.objectReferenceValue = barrelTransform;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(turretGo);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = turretGo;
+            EditorGUIUtility.PingObject(turretGo);
+            Debug.Log("[Fix032] ArcPredictTurret_Test barrelPivot → Barrel. The barrel will now pitch to match the ballistic launch angle.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/033 - Fully wire ArcPredictTurret_Test (registry, muzzle, barrel pivot)")]
+        private static void Fix033()
+        {
+            // Audits and wires every serialized reference the arc turret needs: entityRegistry on
+            // EnemyCore + behavior, muzzle, and barrelPivot. Only fills NULL fields — hand-set
+            // values are never overwritten. Operates on the currently open scene when it is
+            // TestLevel (preserving unsaved edits); otherwise opens TestLevel.
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (scene.name != "TestLevel")
+            {
+                bool testLevelLoaded = false;
+                for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+                {
+                    var s = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+                    if (s.name == "TestLevel") { scene = s; testLevelLoaded = true; break; }
+                }
+                if (!testLevelLoaded)
+                    scene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+            }
+
+            GameObject turretGo = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == "ArcPredictTurret_Test") { turretGo = root; break; }
+                var found = root.transform.Find("ArcPredictTurret_Test");
+                if (found != null) { turretGo = found.gameObject; break; }
+            }
+            if (turretGo == null)
+            {
+                Debug.LogError("[Fix033] ArcPredictTurret_Test not found in TestLevel — run Fix014 first.");
+                return;
+            }
+
+            var registry = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Entities.EntityRegistrySO>(
+                "Assets/ScriptableObjects/Entities/EntityRegistry.asset");
+            if (registry == null)
+            {
+                Debug.LogError("[Fix033] EntityRegistry.asset not found — run Fix001 first.");
+                return;
+            }
+
+            // Resolve child transforms (Barrel and Barrel/Muzzle come from Fix014's turret build).
+            var barrel = turretGo.transform.Find("Barrel");
+            var muzzleT = barrel != null ? barrel.Find("Muzzle") : null;
+
+            int wired = 0;
+
+            static bool WireIfNull033(Object target, string propName, Object value, ref int counter)
+            {
+                var so = new SerializedObject(target);
+                var prop = so.FindProperty(propName);
+                if (prop == null) return false;
+                if (prop.objectReferenceValue != null) return true; // already set — leave alone
+                if (value == null) return false;
+                prop.objectReferenceValue = value;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                counter++;
+                return true;
+            }
+
+            // Required components.
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyStats>(out _))
+                { turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyStats>(); wired++; }
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyCore>(out var core))
+                { core = turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyCore>(); wired++; }
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(out var behavior))
+                { behavior = turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(); wired++; }
+
+            // Serialized references.
+            WireIfNull033(core, "entityRegistry", registry, ref wired);
+            WireIfNull033(behavior, "entityRegistry", registry, ref wired);
+
+            if (!WireIfNull033(behavior, "muzzle", muzzleT, ref wired))
+                Debug.LogWarning("[Fix033] Could not wire 'muzzle' — no Barrel/Muzzle child found. Projectiles will spawn at the turret root.");
+
+            if (!WireIfNull033(behavior, "barrelPivot", barrel, ref wired))
+                Debug.LogWarning("[Fix033] Could not wire 'barrelPivot' — no Barrel child found. The barrel will not visually pitch.");
+
+            EditorUtility.SetDirty(turretGo);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = turretGo;
+            EditorGUIUtility.PingObject(turretGo);
+            Debug.Log($"[Fix033] ArcPredictTurret_Test wired — {wired} reference(s)/component(s) set. Already-set fields were left untouched.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/034 - Wire 'turret Shooter' as arc-predict turret")]
+        private static void Fix034()
+        {
+            // Finds the developer's hand-built "turret Shooter" object in the loaded scene(s) by
+            // case-insensitive name match, then sets it up as an arc-predict turret: EnemyStats +
+            // EnemyCore + EnemyBehaviorArcPredict, entityRegistry wired, barrel pivot + muzzle
+            // resolved by child-name heuristics (creates a Muzzle empty at the barrel tip if none
+            // exists). Only fills null fields — hand-set values are never overwritten. Operates on
+            // the live scene state, unsaved edits included. Logs the hierarchy if discovery fails.
+            static GameObject FindByFuzzyName034(string mustContainA, string mustContainB)
+            {
+                for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount; i++)
+                {
+                    var s = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+                    if (!s.isLoaded) continue;
+                    foreach (var root in s.GetRootGameObjects())
+                        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                        {
+                            var n = t.name.ToLowerInvariant();
+                            if (n.Contains(mustContainA) && n.Contains(mustContainB))
+                                return t.gameObject;
+                        }
+                }
+                return null;
+            }
+
+            static Transform FindChildContaining034(Transform parent, params string[] keywords)
+            {
+                foreach (var t in parent.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t == parent) continue;
+                    var n = t.name.ToLowerInvariant();
+                    foreach (var kw in keywords)
+                        if (n.Contains(kw)) return t;
+                }
+                return null;
+            }
+
+            static void DumpHierarchy034(Transform t, System.Text.StringBuilder sb, int depth)
+            {
+                sb.Append(' ', depth * 2).AppendLine(t.name);
+                for (int i = 0; i < t.childCount; i++)
+                    DumpHierarchy034(t.GetChild(i), sb, depth + 1);
+            }
+
+            var turretGo = FindByFuzzyName034("turret", "shoot");
+            if (turretGo == null)
+            {
+                Debug.LogError("[Fix034] No GameObject matching 'turret'+'shoot' found in any loaded scene. Check the object name and re-run.");
+                return;
+            }
+
+            var registry = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Entities.EntityRegistrySO>(
+                "Assets/ScriptableObjects/Entities/EntityRegistry.asset");
+            if (registry == null)
+            {
+                Debug.LogError("[Fix034] EntityRegistry.asset not found — run Fix001 first.");
+                return;
+            }
+
+            // --- Resolve barrel pivot + muzzle by child-name heuristics ---------------------------
+            var barrel = FindChildContaining034(turretGo.transform, "barrel", "gun", "cannon", "pivot");
+            var muzzleT = FindChildContaining034(turretGo.transform, "muzzle", "tip", "spawn");
+
+            if (barrel == null)
+            {
+                var sb = new System.Text.StringBuilder("[Fix034] No child matching barrel/gun/cannon/pivot found. Hierarchy of '" + turretGo.name + "':\n");
+                DumpHierarchy034(turretGo.transform, sb, 0);
+                Debug.LogWarning(sb.ToString() + "Wiring components anyway; barrelPivot left empty (no visual pitch). Rename the gun child to contain 'Barrel' and re-run to wire it.");
+            }
+
+            // Create a Muzzle empty at the barrel tip if none exists.
+            if (muzzleT == null && barrel != null)
+            {
+                var muzzleGo = new GameObject("Muzzle");
+                muzzleGo.transform.SetParent(barrel, false);
+
+                var rends = barrel.GetComponentsInChildren<Renderer>(true);
+                if (rends.Length > 0)
+                {
+                    var b = rends[0].bounds;
+                    for (int i = 1; i < rends.Length; i++) b.Encapsulate(rends[i].bounds);
+                    var f = barrel.forward;
+                    // Distance from bounds center to the bounds face farthest along the barrel forward.
+                    var d = b.extents.x * Mathf.Abs(f.x) + b.extents.y * Mathf.Abs(f.y) + b.extents.z * Mathf.Abs(f.z);
+                    muzzleGo.transform.position = b.center + f * d;
+                }
+                muzzleT = muzzleGo.transform;
+                Debug.Log("[Fix034] Created Muzzle empty at the tip of '" + barrel.name + "'.");
+            }
+
+            // --- Components + references (fill-if-null only) --------------------------------------
+            int wired = 0;
+
+            static void WireIfNull034(Object target, string propName, Object value, ref int counter)
+            {
+                if (value == null) return;
+                var so = new SerializedObject(target);
+                var prop = so.FindProperty(propName);
+                if (prop == null || prop.objectReferenceValue != null) return;
+                prop.objectReferenceValue = value;
+                so.ApplyModifiedPropertiesWithoutUndo();
+                counter++;
+            }
+
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyStats>(out _))
+                { turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyStats>(); wired++; }
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyCore>(out var core))
+                { core = turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyCore>(); wired++; }
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(out var behavior))
+                { behavior = turretGo.AddComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(); wired++; }
+
+            WireIfNull034(core, "entityRegistry", registry, ref wired);
+            WireIfNull034(behavior, "entityRegistry", registry, ref wired);
+            WireIfNull034(behavior, "muzzle", muzzleT, ref wired);
+            WireIfNull034(behavior, "barrelPivot", barrel, ref wired);
+
+            EditorUtility.SetDirty(turretGo);
+            EditorSceneManager.MarkSceneDirty(turretGo.scene);
+            EditorSceneManager.SaveScene(turretGo.scene);
+
+            Selection.activeObject = turretGo;
+            EditorGUIUtility.PingObject(turretGo);
+            Debug.Log($"[Fix034] '{turretGo.name}' wired as arc-predict turret — {wired} component(s)/reference(s) set. " +
+                      $"barrelPivot: {(barrel != null ? barrel.name : "NONE")}, muzzle: {(muzzleT != null ? muzzleT.name : "NONE")}.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/035 - Turret Shooter heavy lob (slow fat AoE projectile)")]
+        private static void Fix035()
+        {
+            // Developer-requested tuning (2026-06-12): turn rate 45°/s (half), fire rate 0.5/s
+            // (half), projectile speed 6 m/s (half), gravity scale 0.5, projectile 3x size, and a
+            // new pooled ArcExplosion (radius 1.5, damage 1) spawned on impact. These overwrite the
+            // old defaults on the 'turret Shooter' instance intentionally — explicitly requested.
+
+            static void SetFloatRef035(Object target, string fieldName, float value)
+            {
+                var so = new SerializedObject(target);
+                var useConst = so.FindProperty(fieldName + ".UseConstant");
+                var constVal = so.FindProperty(fieldName + ".ConstantValue");
+                if (useConst == null || constVal == null)
+                {
+                    Debug.LogWarning($"[Fix035] FloatReference '{fieldName}' not found on {target.GetType().Name} — skipped.");
+                    return;
+                }
+                if (!useConst.boolValue)
+                {
+                    Debug.LogWarning($"[Fix035] '{fieldName}' is driven by a Variable SO asset — adjust the asset by hand. Skipped.");
+                    return;
+                }
+                constVal.floatValue = value;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            // --- 1) ArcProjectile prefab: 3x size (0.3 → 0.9 sphere) -------------------------------
+            const string arcPrefabPath = "Assets/Prefabs/Projectiles/ArcProjectile.prefab";
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(arcPrefabPath) == null)
+            {
+                Debug.LogError("[Fix035] ArcProjectile.prefab not found — run Fix014 first.");
+                return;
+            }
+            var arcRoot = PrefabUtility.LoadPrefabContents(arcPrefabPath);
+            arcRoot.transform.localScale = Vector3.one * 0.9f;
+            PrefabUtility.SaveAsPrefabAsset(arcRoot, arcPrefabPath);
+            PrefabUtility.UnloadPrefabContents(arcRoot);
+
+            // --- 2) ArcExplosion prefab (radius 1.5, damage 1) -------------------------------------
+            const string explPrefabPath = "Assets/Prefabs/Projectiles/ArcExplosion.prefab";
+            var explPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(explPrefabPath);
+            if (explPrefab == null)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                go.name = "ArcExplosion";
+                go.transform.localScale = Vector3.one * 3f; // visual diameter 3 = blast radius 1.5
+                if (go.TryGetComponent<Collider>(out var col)) Object.DestroyImmediate(col);
+
+                var aoe = go.AddComponent<BlastFrame.Gameplay.Weapons.AoeExplosion>();
+                var aoeSo = new SerializedObject(aoe);
+                aoeSo.FindProperty("radius.UseConstant").boolValue = true;
+                aoeSo.FindProperty("radius.ConstantValue").floatValue = 1.5f;
+                aoeSo.FindProperty("damage.UseConstant").boolValue = true;
+                aoeSo.FindProperty("damage.ConstantValue").intValue = 1;
+                aoeSo.ApplyModifiedPropertiesWithoutUndo();
+
+                explPrefab = PrefabUtility.SaveAsPrefabAsset(go, explPrefabPath);
+                Object.DestroyImmediate(go);
+            }
+
+            // --- 3) EntityDefinitionSO + pool entry ------------------------------------------------
+            const string defPath = "Assets/ScriptableObjects/Entities/ArcExplosion.asset";
+            var def = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Entities.EntityDefinitionSO>(defPath);
+            if (def == null)
+            {
+                def = ScriptableObject.CreateInstance<BlastFrame.Core.Entities.EntityDefinitionSO>();
+                AssetDatabase.CreateAsset(def, defPath);
+                var defSo = new SerializedObject(def);
+                defSo.FindProperty("id").stringValue = BlastFrame.Core.PoolIds.ArcExplosion;
+                defSo.FindProperty("prefab").objectReferenceValue = explPrefab;
+                defSo.ApplyModifiedPropertiesWithoutUndo();
+            }
+
+            var poolConfig = AssetDatabase.LoadAssetAtPath<BlastFrame.Core.Pooling.PoolConfigSO>(
+                "Assets/ScriptableObjects/Pooling/PoolConfig.asset");
+            if (poolConfig == null)
+            {
+                Debug.LogError("[Fix035] PoolConfig.asset not found — run Fix014 first.");
+                return;
+            }
+            var pcSo = new SerializedObject(poolConfig);
+            var entries = pcSo.FindProperty("entries");
+            bool hasEntry = false;
+            for (int i = 0; i < entries.arraySize; i++)
+            {
+                var d = entries.GetArrayElementAtIndex(i).FindPropertyRelative("definition").objectReferenceValue
+                        as BlastFrame.Core.Entities.EntityDefinitionSO;
+                if (d != null && d.Id == BlastFrame.Core.PoolIds.ArcExplosion) { hasEntry = true; break; }
+            }
+            if (!hasEntry)
+            {
+                int idx = entries.arraySize;
+                entries.InsertArrayElementAtIndex(idx);
+                var e = entries.GetArrayElementAtIndex(idx);
+                e.FindPropertyRelative("definition").objectReferenceValue = def;
+                e.FindPropertyRelative("prewarmCount").intValue = 4;
+                e.FindPropertyRelative("expandIncrement").intValue = 2;
+                pcSo.ApplyModifiedPropertiesWithoutUndo();
+            }
+            AssetDatabase.SaveAssets();
+
+            // --- 4) Turret instance tuning ---------------------------------------------------------
+            GameObject turretGo = null;
+            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount && turretGo == null; i++)
+            {
+                var s = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+                if (!s.isLoaded) continue;
+                foreach (var root in s.GetRootGameObjects())
+                {
+                    foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    {
+                        var n = t.name.ToLowerInvariant();
+                        if (n.Contains("turret") && n.Contains("shoot")) { turretGo = t.gameObject; break; }
+                    }
+                    if (turretGo != null) break;
+                }
+            }
+            if (turretGo == null)
+            {
+                Debug.LogError("[Fix035] 'turret Shooter' not found in any loaded scene — run Fix034 first. Prefab/pool changes were still applied.");
+                return;
+            }
+
+            if (turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyStats>(out var stats))
+            {
+                SetFloatRef035(stats, "fireRate", 0.5f);
+                SetFloatRef035(stats, "projectileSpeed", 6f);
+            }
+            if (turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(out var behavior))
+            {
+                SetFloatRef035(behavior, "rotationSpeed", 45f);
+                SetFloatRef035(behavior, "projectileGravityScale", 0.5f);
+            }
+
+            EditorUtility.SetDirty(turretGo);
+            EditorSceneManager.MarkSceneDirty(turretGo.scene);
+            EditorSceneManager.SaveScene(turretGo.scene);
+
+            Selection.activeObject = turretGo;
+            EditorGUIUtility.PingObject(turretGo);
+            Debug.Log("[Fix035] Heavy lob configured: turn 45°/s, fire 0.5/s, speed 6 m/s, gravity 0.5x, " +
+                      "projectile 3x size, ArcExplosion pool (radius 1.5, damage 1) wired.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/036 - Turret Shooter projectile gravity to 0.2x")]
+        private static void Fix036()
+        {
+            // Developer-requested (2026-06-12): arc projectile gravity = 20% of normal (was 0.5
+            // from Fix035). Overwrites intentionally. maxLeadTime (new field) needs no wiring —
+            // existing instances pick up the code default (1.5s) automatically.
+            GameObject turretGo = null;
+            for (int i = 0; i < UnityEngine.SceneManagement.SceneManager.sceneCount && turretGo == null; i++)
+            {
+                var s = UnityEngine.SceneManagement.SceneManager.GetSceneAt(i);
+                if (!s.isLoaded) continue;
+                foreach (var root in s.GetRootGameObjects())
+                {
+                    foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                    {
+                        var n = t.name.ToLowerInvariant();
+                        if (n.Contains("turret") && n.Contains("shoot")) { turretGo = t.gameObject; break; }
+                    }
+                    if (turretGo != null) break;
+                }
+            }
+            if (turretGo == null)
+            {
+                Debug.LogError("[Fix036] 'turret Shooter' not found in any loaded scene.");
+                return;
+            }
+
+            if (!turretGo.TryGetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>(out var behavior))
+            {
+                Debug.LogError("[Fix036] EnemyBehaviorArcPredict not found on '" + turretGo.name + "'.");
+                return;
+            }
+
+            var so = new SerializedObject(behavior);
+            var useConst = so.FindProperty("projectileGravityScale.UseConstant");
+            var constVal = so.FindProperty("projectileGravityScale.ConstantValue");
+            if (useConst == null || constVal == null)
+            {
+                Debug.LogError("[Fix036] projectileGravityScale FloatReference not found — ensure scripts compiled.");
+                return;
+            }
+            if (!useConst.boolValue)
+            {
+                Debug.LogWarning("[Fix036] projectileGravityScale is driven by a Variable SO — adjust the asset by hand. Aborting.");
+                return;
+            }
+
+            constVal.floatValue = 0.2f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(turretGo);
+            EditorSceneManager.MarkSceneDirty(turretGo.scene);
+            EditorSceneManager.SaveScene(turretGo.scene);
+
+            Selection.activeObject = turretGo;
+            EditorGUIUtility.PingObject(turretGo);
+            Debug.Log("[Fix036] '" + turretGo.name + "' projectileGravityScale 0.5 → 0.2.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/030 - Convert DevTex materials to URP Lit")]
+        private static void Fix030()
+        {
+            // URP 17 removed the Edit > Rendering material-convert menu items; the Render Pipeline
+            // Converter window can't be driven from code. Runs Unity's own StandardUpgrader on just
+            // Assets/DevTex/Materials so the transparent trigger/zone materials (_Mode 2/3) and
+            // emission map correctly instead of a raw shader swap.
+            var upgraders = new System.Collections.Generic.List<UnityEditor.Rendering.MaterialUpgrader>
+            {
+                new UnityEditor.Rendering.Universal.StandardUpgrader("Standard"),
+                new UnityEditor.Rendering.Universal.StandardUpgrader("Standard (Specular setup)"),
+            };
+
+            string[] guids = AssetDatabase.FindAssets("t:Material", new[] { "Assets/DevTex/Materials" });
+            int converted = 0, skipped = 0;
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (mat == null || mat.shader == null ||
+                    (mat.shader.name != "Standard" && mat.shader.name != "Standard (Specular setup)"))
+                {
+                    skipped++;
+                    continue;
+                }
+
+                UnityEditor.Rendering.MaterialUpgrader.Upgrade(
+                    mat, upgraders, UnityEditor.Rendering.MaterialUpgrader.UpgradeFlags.None);
+                converted++;
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Fix030] DevTex materials: {converted} converted Standard → URP Lit, {skipped} skipped (already URP or not a Standard material).");
+        }
     }
 }
