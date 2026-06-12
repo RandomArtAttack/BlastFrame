@@ -39,7 +39,18 @@ namespace BlastFrame.Gameplay.Player.Movement
 
                 if (state.IsGrounded && collider.TryGetComponent<IRidePlatform>(out var ride))
                 {
-                    state.Velocity += ride.SampleRideVelocity(point);
+                    Vector3 rideVel = ride.SampleRideVelocity(point);
+
+                    // Horizontal: additive is safe — base locomotion resets horizontal every grounded
+                    // tick, so this contributes exactly one platform-velocity per tick.
+                    state.Velocity.x += rideVel.x;
+                    state.Velocity.z += rideVel.z;
+
+                    // Vertical: MATCH a rising platform, never add (adding stacks tick over tick and
+                    // bounces the player off the platform). A jump's vy is bigger and wins the Max.
+                    // Descending platforms need nothing — the motor's ground snap keeps us glued.
+                    if (rideVel.y > 0f)
+                        state.Velocity.y = Mathf.Max(state.Velocity.y, rideVel.y);
                 }
             }
         }
@@ -49,7 +60,19 @@ namespace BlastFrame.Gameplay.Player.Movement
             collider = null;
             point = transform.position;
             float radius = _capsule != null ? _capsule.radius * 0.9f : 0.35f;
-            Vector3 origin = transform.position + (_capsule != null ? _capsule.center : Vector3.up) + Vector3.up * 0.1f;
+
+            // Cast from the capsule's BOTTOM sphere centre (same as the motor's ground check) — from
+            // the capsule's middle the sphere can never reach the surface under the feet.
+            Vector3 origin;
+            if (_capsule != null)
+            {
+                float half = Mathf.Max(0f, _capsule.height * 0.5f - _capsule.radius);
+                origin = transform.position + _capsule.center - Vector3.up * half;
+            }
+            else
+            {
+                origin = transform.position + Vector3.up * 0.5f;
+            }
 
             int count = Physics.SphereCastNonAlloc(origin, radius, Vector3.down, _hits,
                 probeDistance + 0.1f, platformMask, QueryTriggerInteraction.Ignore);

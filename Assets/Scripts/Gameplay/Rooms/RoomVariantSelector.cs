@@ -34,7 +34,7 @@ namespace BlastFrame.Gameplay.Rooms
 
             // Mix seed and roomIndex to get a per-room deterministic hash.
             // Using the Wang hash style to spread bits across the int range.
-            int hash = seed ^ (roomIndex * 2654435761);
+            int hash = seed ^ unchecked(roomIndex * (int)2654435761u);
             hash ^= hash >> 16;
             hash *= unchecked((int)0x45d9f3b);
             hash ^= hash >> 16;

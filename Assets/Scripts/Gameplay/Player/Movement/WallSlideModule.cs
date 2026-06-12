@@ -7,8 +7,9 @@ namespace BlastFrame.Gameplay.Player.Movement
     /// <summary>
     /// When airborne and pressing into a wall, clamps fall speed to a slow slide. Jumping while
     /// wall-sliding launches up-and-away from the wall, with a brief steering lockout so the player
-    /// actually leaves the wall before air control resumes. Independent of JumpModule (only acts
-    /// when on a wall and airborne, where JumpModule does nothing).
+    /// actually leaves the wall before air control resumes. Dashing while on a wall does the same
+    /// launch but with dash-speed horizontal momentum (a stronger kick). Independent of JumpModule
+    /// and DashModule (only acts when on a wall and airborne, where those modules do nothing).
     /// </summary>
     public class WallSlideModule : MonoBehaviour, IMovementModule
     {
@@ -22,6 +23,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private bool _sliding;
         private bool _jumpQueued;
+        private bool _dashJumpQueued;
         private float _lockoutTimer;
         private Vector3 _lockoutHoriz;
 
@@ -31,11 +33,14 @@ namespace BlastFrame.Gameplay.Player.Movement
         {
             _input = ServiceLocator.Get<IPlayerInput>();
             _input.OnJumpPressed += OnJumpPressed;
+            _input.OnDashPressed += OnDashPressed;
         }
 
         private void OnDestroy()
         {
-            if (_input != null) _input.OnJumpPressed -= OnJumpPressed;
+            if (_input == null) return;
+            _input.OnJumpPressed -= OnJumpPressed;
+            _input.OnDashPressed -= OnDashPressed;
         }
 
         private void OnJumpPressed()
@@ -43,22 +48,33 @@ namespace BlastFrame.Gameplay.Player.Movement
             if (_sliding) _jumpQueued = true;
         }
 
+        private void OnDashPressed()
+        {
+            if (_sliding) _dashJumpQueued = true;
+        }
+
         public void Tick(ref MoveState state)
         {
             float dt = state.DeltaTime;
 
-            bool pushingIntoWall = state.IsOnWall && Vector3.Dot(state.WishDir, -state.WallNormal) > 0.1f;
-            _sliding = !state.IsGrounded && pushingIntoWall;
+            _sliding = !state.IsGrounded && state.IsOnWall;
 
-            if (_jumpQueued && state.IsOnWall && !state.IsGrounded)
+            bool dashJump = _dashJumpQueued;
+            bool normalJump = _jumpQueued;
+            _jumpQueued = false;
+            _dashJumpQueued = false;
+
+            if ((dashJump || normalJump) && state.IsOnWall && !state.IsGrounded)
             {
-                Vector3 away = state.WallNormal * _stats.WallJumpAway;
+                // Dash-wall-jump carries dash speed away from the wall; a plain wall jump uses the
+                // lighter wall-jump push. Both launch at the same upward velocity.
+                float awaySpeed = dashJump ? _stats.DashSpeed : _stats.WallJumpAway;
+                Vector3 away = state.WallNormal * awaySpeed;
                 state.Velocity = new Vector3(away.x, _stats.WallJumpUp, away.z);
                 _lockoutTimer = wallJumpLockout;
                 _lockoutHoriz = new Vector3(away.x, 0f, away.z);
                 _sliding = false;
             }
-            _jumpQueued = false;
 
             if (_lockoutTimer > 0f)
             {

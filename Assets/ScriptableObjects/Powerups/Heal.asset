@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9128e1809a95d8d4aaff3e0220bc737e, type: 3}
+  m_Name: Heal
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Powerups.PowerupSO
+  _id: heal_basic
+  _displayName: Heal Pack
+  _effect: 0
+  _magnitude:
+    UseConstant: 1
+    ConstantValue: 2
+    Variable: {fileID: 0}
+  _duration:
+    UseConstant: 1
+    ConstantValue: 0
+    Variable: {fileID: 0}

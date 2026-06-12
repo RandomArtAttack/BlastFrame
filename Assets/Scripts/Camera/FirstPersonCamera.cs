@@ -16,8 +16,11 @@ namespace BlastFrame.CameraRig
         [Tooltip("The body transform to yaw (the Player root). Auto-resolved to the parent if null.")]
         [SerializeField] private Transform body;
 
-        [Tooltip("Look sensitivity multiplier. ~0.1 for mouse delta scaling.")]
+        [Tooltip("Look sensitivity multiplier for mouse (pixel delta). ~0.1.")]
         [SerializeField] private FloatReference sensitivity = new FloatReference(0.1f);
+
+        [Tooltip("Degrees of rotation per frame at full stick deflection for controller. ~3 = 180°/s at 60fps. Tune up/down in Inspector.")]
+        [SerializeField] private FloatReference controllerSensitivity = new FloatReference(2.4f);
 
         [Tooltip("Minimum pitch (look down) in degrees.")]
         [SerializeField] private float minPitch = -85f;
@@ -41,7 +44,9 @@ namespace BlastFrame.CameraRig
         private void LateUpdate()
         {
             if (_input == null) return;
-            Vector2 look = _input.Look * sensitivity;
+            Vector2 look = _input.LookFromGamepad
+                ? _input.Look * (float)controllerSensitivity
+                : _input.Look * (float)sensitivity;
 
             if (body != null) body.Rotate(Vector3.up, look.x, Space.Self);
 

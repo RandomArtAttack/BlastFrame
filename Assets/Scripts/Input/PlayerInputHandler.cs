@@ -9,6 +9,7 @@ namespace BlastFrame.Input
     {
         Vector2 Move { get; }
         Vector2 Look { get; }
+        bool LookFromGamepad { get; }
         bool JumpHeld { get; }
         bool FireHeld { get; }
         event Action OnJumpPressed;
@@ -33,6 +34,7 @@ namespace BlastFrame.Input
 
         public Vector2 Move { get; private set; }
         public Vector2 Look { get; private set; }
+        public bool LookFromGamepad { get; private set; }
         public bool JumpHeld { get; private set; }
         public bool FireHeld { get; private set; }
 
@@ -86,6 +88,14 @@ namespace BlastFrame.Input
             }
             Move = _actions.Player.Move.ReadValue<Vector2>();
             Look = _actions.Player.Look.ReadValue<Vector2>();
+
+            // Route look sensitivity by the device actually driving the action this frame
+            // (a connected-but-idle gamepad must NOT hijack mouse sensitivity). activeControl is
+            // null when the action is at rest — keep the last known device in that case.
+            var lookControl = _actions.Player.Look.activeControl;
+            if (lookControl != null)
+                LookFromGamepad = lookControl.device is UnityEngine.InputSystem.Gamepad;
+
             JumpHeld = _actions.Player.Jump.IsPressed();
             FireHeld = _actions.Player.Attack.IsPressed();
         }

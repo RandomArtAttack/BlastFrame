@@ -314,6 +314,18 @@ Master, Music, SFX (UI routes to SFX)
 # CLAUDE BEHAVIOR — how to interact with me
 # =============================================
 
+# MCP vs Implement Fix routing (STRICT)
+- If a prompt STARTS WITH "mcp" or "MCP" (case-insensitive, e.g. "mcp wire the...", "MCP fix..."):
+  → Execute the change directly through the mcp-unity MCP server. Do NOT write an Implement Fix.
+  → If the change cannot be done via MCP (e.g. the operation requires editor reflection, batch
+    scene writes, or the MCP tool set can't express it), explain why in one sentence and provide
+    an Implement Fix instead.
+- If a prompt does NOT start with "mcp" / "MCP":
+  → Default to writing an Implement Fix (numbered, additive, single-purpose per the rules below).
+  → Do NOT use MCP for the implementation unless explicitly told to.
+- This preference exists because MCP calls have a cost and require Unity editor focus. The
+  developer controls when to spend that cost.
+
 - Be concise and technical. No filler, no fluff.
 - If my approach violates Unity best practices or C# conventions, say so directly before implementing it.
 - If my implementation request is suboptimal, suggest a better approach with a brief trade-off explanation before writing code.

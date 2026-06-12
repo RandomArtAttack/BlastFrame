@@ -38,6 +38,7 @@ namespace BlastFrame.Core.Services
         int CurrentLevelIndex { get; }
         int CurrentRoomIndex { get; }
         void StartRun(int levelIndex, BlastFrame.Core.Difficulty difficulty);
+        void CompleteLevel();
         void EndRun(bool died);
     }
 

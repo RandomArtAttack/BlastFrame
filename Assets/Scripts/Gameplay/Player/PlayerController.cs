@@ -77,10 +77,15 @@ namespace BlastFrame.Gameplay.Player
             {
                 horiz = target; // snappy ground control
             }
+            else if (state.WishDir.sqrMagnitude > 0.01f)
+            {
+                // Air with input: steer toward the wished direction.
+                horiz = Vector3.MoveTowards(horiz, target, _stats.AirControl * dt);
+            }
             else
             {
-                // Air: steer toward target while bleeding excess momentum (dash-jump carry).
-                horiz = Vector3.MoveTowards(horiz, target, _stats.AirControl * dt);
+                // Air, no input: keep momentum (wall-jump / dash-jump carry), mild drag bleed.
+                horiz *= Mathf.Max(0f, 1f - _stats.AirDrag * dt);
             }
 
             float vy = state.Velocity.y - _stats.Gravity * dt;

@@ -29,6 +29,9 @@ namespace BlastFrame.Gameplay.Platforms
         public Vector3 CurrentVelocity { get; private set; }
 
         private Rigidbody _rb;
+        private Vector3[] _points; // waypoint WORLD positions cached at Start — the waypoints are
+                                   // children of this platform, so reading them live makes the target
+                                   // move with the platform and it never arrives (carrot on a stick)
         private int _targetIndex;
         private int _direction = 1; // +1 or -1 (used by PingPong)
 
@@ -49,18 +52,23 @@ namespace BlastFrame.Gameplay.Platforms
                 return;
             }
 
+            // Cache world positions BEFORE the platform moves (moving it drags the child waypoints).
+            _points = new Vector3[waypoints.Count];
+            for (int i = 0; i < waypoints.Count; i++)
+                _points[i] = waypoints[i].position;
+
             // Start at waypoint 0.
-            _rb.MovePosition(waypoints[0].position);
+            _rb.position = _points[0];
             _targetIndex = 1;
             _direction = 1;
         }
 
         private void FixedUpdate()
         {
-            if (waypoints == null || waypoints.Count < 2) return;
+            if (_points == null || _points.Length < 2) return;
 
             Vector3 current = _rb.position;
-            Vector3 target = waypoints[_targetIndex].position;
+            Vector3 target = _points[_targetIndex];
             float maxDist = speed.Value * Time.fixedDeltaTime;
             Vector3 next = Vector3.MoveTowards(current, target, maxDist);
 
@@ -75,15 +83,15 @@ namespace BlastFrame.Gameplay.Platforms
         {
             if (pathMode == PathMode.Cycle)
             {
-                _targetIndex = (_targetIndex + 1) % waypoints.Count;
+                _targetIndex = (_targetIndex + 1) % _points.Length;
             }
             else // PingPong
             {
                 _targetIndex += _direction;
-                if (_targetIndex >= waypoints.Count)
+                if (_targetIndex >= _points.Length)
                 {
                     _direction = -1;
-                    _targetIndex = waypoints.Count - 2;
+                    _targetIndex = _points.Length - 2;
                 }
                 else if (_targetIndex < 0)
                 {

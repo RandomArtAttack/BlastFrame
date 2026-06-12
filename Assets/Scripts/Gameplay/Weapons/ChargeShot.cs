@@ -18,6 +18,9 @@ namespace BlastFrame.Gameplay.Weapons
         [Tooltip("Seconds to go from 0 to full charge (1.0). 0.8 – 1.5 is a good range.")]
         [SerializeField] private FloatReference chargeTime = new FloatReference(1f);
 
+        [Tooltip("Charge (0..1) the release shot must reach to fire. Below this, the instant press-shot already covered it (tap). ~0.25.")]
+        [SerializeField] private FloatReference minReleaseCharge = new FloatReference(0.25f);
+
         // IChargeReadout
         public float Charge01 { get; private set; }
         public event Action<float> OnChargeChanged;
@@ -61,6 +64,8 @@ namespace BlastFrame.Gameplay.Weapons
         {
             _charging = true;
             SetCharge(0f);
+            // Instant tap shot on press (Mega Man X style) — release only fires the charged shot.
+            OnReleased?.Invoke(0f);
         }
 
         private void HandleFireReleased()
@@ -68,7 +73,8 @@ namespace BlastFrame.Gameplay.Weapons
             _charging = false;
             float fired = Charge01;
             SetCharge(0f);
-            OnReleased?.Invoke(fired);
+            if (fired >= minReleaseCharge.Value)
+                OnReleased?.Invoke(fired);
         }
 
         private void SetCharge(float value)

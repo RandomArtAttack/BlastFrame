@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(find Assets -iname \"*.prefab\")",
-      "Bash(find Assets -iname \"*player*\")"
+      "Bash(find Assets -iname \"*player*\")",
+      "Bash(git pull *)",
+      "Bash(git merge *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "mcp-unity"
+  ]
 }

@@ -284,12 +284,12 @@ namespace BlastFrame.EditorTools
                 go.name = "PlayerProjectile";
                 go.transform.localScale = Vector3.one * 0.25f;
 
-                var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+                if (!go.TryGetComponent(out Rigidbody rb)) rb = go.AddComponent<Rigidbody>();
                 rb.isKinematic = true;
                 rb.useGravity = false;
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-                var col = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
+                if (!go.TryGetComponent(out SphereCollider col)) col = go.AddComponent<SphereCollider>();
                 col.isTrigger = true;
 
                 go.AddComponent<PlayerProjectile>();
@@ -1119,7 +1119,7 @@ namespace BlastFrame.EditorTools
             healthGo.transform.SetParent(canvasGo.transform, false);
             var healthDisplay = healthGo.AddComponent<BlastFrame.UI.HealthDisplay>();
 
-            var healthRT          = healthGo.GetComponent<UnityEngine.RectTransform>();
+            var healthRT          = healthGo.AddComponent<UnityEngine.RectTransform>();
             healthRT.anchorMin    = new Vector2(0f, 1f);
             healthRT.anchorMax    = new Vector2(0f, 1f);
             healthRT.pivot        = new Vector2(0f, 1f);
@@ -1137,7 +1137,7 @@ namespace BlastFrame.EditorTools
             dashGo.transform.SetParent(canvasGo.transform, false);
             var dashCooldownUI = dashGo.AddComponent<BlastFrame.UI.DashCooldownUI>();
 
-            var dashRT            = dashGo.GetComponent<UnityEngine.RectTransform>();
+            var dashRT            = dashGo.AddComponent<UnityEngine.RectTransform>();
             dashRT.anchorMin      = new Vector2(0f, 0f);
             dashRT.anchorMax      = new Vector2(0f, 0f);
             dashRT.pivot          = new Vector2(0f, 0f);
@@ -1156,7 +1156,7 @@ namespace BlastFrame.EditorTools
             chargeGo.transform.SetParent(canvasGo.transform, false);
             var chargeBarUI = chargeGo.AddComponent<BlastFrame.UI.ChargeBarUI>();
 
-            var chargeRT          = chargeGo.GetComponent<UnityEngine.RectTransform>();
+            var chargeRT          = chargeGo.AddComponent<UnityEngine.RectTransform>();
             chargeRT.anchorMin    = new Vector2(0.5f, 0f);
             chargeRT.anchorMax    = new Vector2(0.5f, 0f);
             chargeRT.pivot        = new Vector2(0.5f, 0f);
@@ -1580,12 +1580,12 @@ namespace BlastFrame.EditorTools
                 go.name = System.IO.Path.GetFileNameWithoutExtension(path);
                 go.transform.localScale = Vector3.one * 0.3f;
 
-                var rb = go.GetComponent<Rigidbody>() ?? go.AddComponent<Rigidbody>();
+                if (!go.TryGetComponent(out Rigidbody rb)) rb = go.AddComponent<Rigidbody>();
                 rb.isKinematic = true;
                 rb.useGravity = false;
                 rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-                var col = go.GetComponent<SphereCollider>() ?? go.AddComponent<SphereCollider>();
+                if (!go.TryGetComponent(out SphereCollider col)) col = go.AddComponent<SphereCollider>();
                 col.isTrigger = true;
 
                 var type = System.Type.GetType(compTypeName + ", Assembly-CSharp");
@@ -1749,6 +1749,526 @@ namespace BlastFrame.EditorTools
             Selection.activeObject = poolConfig;
             EditorGUIUtility.PingObject(poolConfig);
             Debug.Log("[Fix014] Enemy projectiles, pools, PoolManager, and two test turrets placed. Idempotent.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/022 - Create Audio Mixer And Wire AudioManager")]
+        private static void Fix022()
+        {
+            // AudioMixer assets cannot be created via public API; this uses the editor's internal
+            // AudioMixerController (the same code path as Assets > Create > Audio Mixer). If Unity
+            // renames the internals, this fix bails with an error instead of half-creating assets.
+            const string mixerPath = "Assets/Audio/GameAudioMixer.mixer";
+
+            if (!AssetDatabase.IsValidFolder("Assets/Audio"))
+                AssetDatabase.CreateFolder("Assets", "Audio");
+
+            var editorAsm = typeof(UnityEditor.Editor).Assembly;
+            var controllerType = editorAsm.GetType("UnityEditor.Audio.AudioMixerController");
+            var groupType = editorAsm.GetType("UnityEditor.Audio.AudioMixerGroupController");
+            var exposedParamType = editorAsm.GetType("UnityEditor.Audio.ExposedAudioParameter");
+            if (controllerType == null || groupType == null || exposedParamType == null)
+            {
+                Debug.LogError("[Fix022] Internal AudioMixerController API not found in this Unity version — create the mixer by hand (see Fix010 log).");
+                return;
+            }
+
+            // ---- step 1: mixer asset with Master group (factory creates master + snapshot) ------
+            var controller = AssetDatabase.LoadMainAssetAtPath(mixerPath);
+            if (controller == null)
+            {
+                var factory = controllerType.GetMethod("CreateMixerControllerAtPath",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                if (factory == null)
+                {
+                    Debug.LogError("[Fix022] AudioMixerController.CreateMixerControllerAtPath not found — create the mixer by hand.");
+                    return;
+                }
+                controller = factory.Invoke(null, new object[] { mixerPath }) as Object;
+                AssetDatabase.ImportAsset(mixerPath);
+                controller = AssetDatabase.LoadMainAssetAtPath(mixerPath);
+                Debug.Log($"[Fix022] Created {mixerPath}.");
+            }
+            if (controller == null)
+            {
+                Debug.LogError("[Fix022] Mixer asset could not be created/loaded — aborting.");
+                return;
+            }
+
+            var masterGroup = controllerType.GetProperty("masterGroup")?.GetValue(controller) as Object;
+            if (masterGroup == null)
+            {
+                Debug.LogError("[Fix022] Mixer has no master group — aborting.");
+                return;
+            }
+
+            // ---- step 2: Music + SFX child groups (idempotent by name) -------------------------
+            Object EnsureGroup022(string name)
+            {
+                var mixerAsset = (UnityEngine.Audio.AudioMixer)controller;
+                foreach (var g in mixerAsset.FindMatchingGroups(name))
+                    if (g.name == name) return g;
+
+                var createGroup = controllerType.GetMethod("CreateNewGroup");
+                var addChild = controllerType.GetMethod("AddChildToParent");
+                var group = createGroup.Invoke(controller, new object[] { name, false }) as Object;
+                addChild.Invoke(controller, new object[] { group, masterGroup });
+
+                // Persist group + its effect sub-assets into the .mixer asset if the internal
+                // call didn't already do it.
+                if (!AssetDatabase.Contains(group))
+                    AssetDatabase.AddObjectToAsset(group, controller);
+                if (groupType.GetProperty("effects")?.GetValue(group) is Object[] effects)
+                    foreach (var fx in effects)
+                        if (fx != null && !AssetDatabase.Contains(fx))
+                            AssetDatabase.AddObjectToAsset(fx, controller);
+
+                Debug.Log($"[Fix022] Added '{name}' group under Master.");
+                return group;
+            }
+
+            var musicGroup = EnsureGroup022("Music");
+            var sfxGroup = EnsureGroup022("SFX");
+
+            // ---- step 3: exposed volume params (MasterVolume / MusicVolume / SfxVolume) --------
+            var getGuidForVolume = groupType.GetMethod("GetGUIDForVolume");
+            var exposedProp = controllerType.GetProperty("exposedParameters");
+            var guidField = exposedParamType.GetField("guid");
+            var nameField = exposedParamType.GetField("name");
+            if (getGuidForVolume == null || exposedProp == null || guidField == null || nameField == null)
+            {
+                Debug.LogError("[Fix022] Exposed-parameter internals not found — expose MasterVolume/MusicVolume/SfxVolume by hand (right-click each group's Volume).");
+                return;
+            }
+
+            var current = (System.Collections.IEnumerable)exposedProp.GetValue(controller);
+            var list = new System.Collections.Generic.List<object>();
+            var existingNames = new System.Collections.Generic.HashSet<string>();
+            foreach (var p in current) { list.Add(p); existingNames.Add((string)nameField.GetValue(p)); }
+
+            void Expose022(Object group, string paramName)
+            {
+                if (existingNames.Contains(paramName)) return;
+                var guid = getGuidForVolume.Invoke(group, null);
+                var p = System.Activator.CreateInstance(exposedParamType);
+                guidField.SetValue(p, guid);
+                nameField.SetValue(p, paramName);
+                list.Add(p);
+                Debug.Log($"[Fix022] Exposed '{paramName}'.");
+            }
+
+            Expose022(masterGroup, BlastFrame.Core.AudioMixerParams.MasterVolume);
+            Expose022(musicGroup, BlastFrame.Core.AudioMixerParams.MusicVolume);
+            Expose022(sfxGroup, BlastFrame.Core.AudioMixerParams.SfxVolume);
+
+            var arr = System.Array.CreateInstance(exposedParamType, list.Count);
+            for (int i = 0; i < list.Count; i++) arr.SetValue(list[i], i);
+            exposedProp.SetValue(controller, arr);
+
+            EditorUtility.SetDirty(controller);
+            AssetDatabase.SaveAssets();
+
+            // ---- step 4: wire AudioManager in Core (only fills null fields) --------------------
+            var coreScene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+            BlastFrame.Audio.AudioManager audioMgr = null;
+            foreach (var root in coreScene.GetRootGameObjects())
+            {
+                audioMgr = root.GetComponentInChildren<BlastFrame.Audio.AudioManager>(true);
+                if (audioMgr != null) break;
+            }
+            if (audioMgr == null)
+            {
+                Debug.LogError("[Fix022] No AudioManager in Core — run Fix 010 first.");
+                return;
+            }
+
+            var amSo = new SerializedObject(audioMgr);
+            var mixerProp = amSo.FindProperty("mixer");
+            var sfxProp = amSo.FindProperty("sfxGroup");
+            var musicProp = amSo.FindProperty("musicGroup");
+            if (mixerProp.objectReferenceValue == null) mixerProp.objectReferenceValue = controller;
+            if (sfxProp.objectReferenceValue == null) sfxProp.objectReferenceValue = sfxGroup;
+            if (musicProp.objectReferenceValue == null) musicProp.objectReferenceValue = musicGroup;
+            amSo.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.MarkSceneDirty(coreScene);
+            EditorSceneManager.SaveScene(coreScene);
+
+            Selection.activeObject = controller;
+            EditorGUIUtility.PingObject(controller);
+            Debug.Log("[Fix022] GameAudioMixer (Master/Music/SFX, MasterVolume/MusicVolume/SfxVolume exposed) wired into Core's AudioManager.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/023 - Default Boss Phases On TestBoss")]
+        private static void Fix023()
+        {
+            // Fills BossCore.phases on TestBoss ONLY if the list is empty — never overwrites
+            // hand-tuned phase setups. Phase 0 (full health): missile turret behavior.
+            // Phase 1 (≤50% health): missile + arc-predict together (escalation).
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+
+            GameObject bossGo = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name == "TestBoss") { bossGo = root; break; }
+                var t = root.transform.Find("TestBoss");
+                if (t != null) { bossGo = t.gameObject; break; }
+            }
+            if (bossGo == null || !bossGo.TryGetComponent(out BlastFrame.Gameplay.Enemies.Bosses.BossCore bossCore))
+            {
+                Debug.LogError("[Fix023] TestBoss with BossCore not found in TestLevel — run Fix 020 first.");
+                return;
+            }
+
+            var missile = bossGo.GetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorMissileTurret>();
+            var arc = bossGo.GetComponent<BlastFrame.Gameplay.Enemies.EnemyBehaviorArcPredict>();
+            if (missile == null || arc == null)
+            {
+                Debug.LogError("[Fix023] TestBoss is missing its turret behaviors — run Fix 020 first.");
+                return;
+            }
+
+            var so = new SerializedObject(bossCore);
+            var phasesProp = so.FindProperty("phases");
+            if (phasesProp.arraySize > 0)
+            {
+                Debug.LogWarning("[Fix023] TestBoss already has phases configured — leaving them untouched.");
+                return;
+            }
+
+            void AddPhase023(float fraction, Object[] behaviors)
+            {
+                int idx = phasesProp.arraySize;
+                phasesProp.InsertArrayElementAtIndex(idx);
+                var elem = phasesProp.GetArrayElementAtIndex(idx);
+                elem.FindPropertyRelative("healthFraction").floatValue = fraction;
+                var listProp = elem.FindPropertyRelative("behaviorsToEnable");
+                listProp.ClearArray();
+                for (int i = 0; i < behaviors.Length; i++)
+                {
+                    listProp.InsertArrayElementAtIndex(i);
+                    listProp.GetArrayElementAtIndex(i).objectReferenceValue = behaviors[i];
+                }
+            }
+
+            AddPhase023(1f, new Object[] { missile });
+            AddPhase023(0.5f, new Object[] { missile, arc });
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = bossGo;
+            EditorGUIUtility.PingObject(bossGo);
+            Debug.Log("[Fix023] TestBoss phases set: 100% = missile turret, ≤50% = missile + arc-predict.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/025 - Force-Wire RoomSlot Demo Variants (reflection)")]
+        private static void Fix025()
+        {
+            // Fix024 set _variants via SerializedObject but the saves didn't persist to YAML.
+            // This fix bypasses SerializedObject entirely: uses reflection to write directly into
+            // the managed List<T>, then calls SetDirty + SaveScene so Unity re-serializes from the
+            // managed state — guaranteed to round-trip correctly.
+            var soA = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantA.asset");
+            var soB = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantB.asset");
+            var soC = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantC.asset");
+            if (soA == null || soB == null || soC == null)
+            {
+                Debug.LogError("[Fix025] Demo variant SOs not found — run Fix016 first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+            BlastFrame.Gameplay.Rooms.RoomController controller = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                controller = root.GetComponentInChildren<BlastFrame.Gameplay.Rooms.RoomController>(true);
+                if (controller != null) break;
+            }
+            if (controller == null)
+            {
+                Debug.LogError("[Fix025] No RoomController in TestLevel — run Fix016 first.");
+                return;
+            }
+
+            // Direct reflection write — bypasses SerializedObject round-trip issues.
+            var field = typeof(BlastFrame.Gameplay.Rooms.RoomController)
+                .GetField("_variants", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            if (field == null)
+            {
+                Debug.LogError("[Fix025] Could not reflect _variants field on RoomController — field may have been renamed.");
+                return;
+            }
+
+            var list = (System.Collections.Generic.List<BlastFrame.Gameplay.Rooms.RoomVariantSO>)field.GetValue(controller);
+            list.Clear();
+            list.Add(soA);
+            list.Add(soB);
+            list.Add(soC);
+
+            EditorUtility.SetDirty(controller);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = controller.gameObject;
+            EditorGUIUtility.PingObject(controller.gameObject);
+            Debug.Log("[Fix025] _variants force-wired via reflection: [0]=Demo_VariantA, [1]=Demo_VariantB, [2]=Demo_VariantC. TestLevel saved.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/024 - Rewire RoomSlot Demo Variants")]
+        private static void Fix024()
+        {
+            // Fix016's _variants wiring did not persist (scene saved with 3 null entries) and its
+            // idempotency guard skips rewiring on re-run. This fix fills ONLY null slots with the
+            // three Demo variant SOs — designer-replaced variants are left untouched.
+            var soA = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantA.asset");
+            var soB = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantB.asset");
+            var soC = AssetDatabase.LoadAssetAtPath<BlastFrame.Gameplay.Rooms.RoomVariantSO>("Assets/ScriptableObjects/RoomVariants/Demo_VariantC.asset");
+            if (soA == null || soB == null || soC == null)
+            {
+                Debug.LogError("[Fix024] Demo variant SOs not found — run Fix 016 first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/TestLevel.unity", OpenSceneMode.Single);
+            BlastFrame.Gameplay.Rooms.RoomController controller = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                controller = root.GetComponentInChildren<BlastFrame.Gameplay.Rooms.RoomController>(true);
+                if (controller != null) break;
+            }
+            if (controller == null)
+            {
+                Debug.LogError("[Fix024] No RoomController in TestLevel — run Fix 016 first.");
+                return;
+            }
+
+            var so = new SerializedObject(controller);
+            var variantsProp = so.FindProperty("_variants");
+            if (variantsProp.arraySize != 3) variantsProp.arraySize = 3;
+
+            var sos = new Object[] { soA, soB, soC };
+            int wired = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                var elem = variantsProp.GetArrayElementAtIndex(i);
+                if (elem.objectReferenceValue == null)
+                {
+                    elem.objectReferenceValue = sos[i];
+                    wired++;
+                }
+            }
+
+            if (wired == 0)
+            {
+                Debug.Log("[Fix024] All 3 variant slots already wired — nothing to do.");
+                return;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(controller);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = controller.gameObject;
+            EditorGUIUtility.PingObject(controller.gameObject);
+            Debug.Log($"[Fix024] Rewired {wired} null variant slot(s) on RoomSlot_Demo and saved TestLevel.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/026 - Disable VSync on Core GameManager (FPS cap instead)")]
+        private static void Fix026()
+        {
+            // VSync's frame pacing was adding mouse-look latency. The code default is now 0, but the
+            // GameManager instance in Core.unity still has vSyncCount=1 serialized from when the field
+            // was added. This sets the live scene value to 0 so the frame-rate cap is used instead.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            BlastFrame.Core.GameManager gm = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                gm = root.GetComponentInChildren<BlastFrame.Core.GameManager>(true);
+                if (gm != null) break;
+            }
+            if (gm == null)
+            {
+                Debug.LogError("[Fix026] No GameManager in Core.unity — run Fix 001 first.");
+                return;
+            }
+
+            var so = new SerializedObject(gm);
+            var vsyncProp = so.FindProperty("vSyncCount");
+            if (vsyncProp == null)
+            {
+                Debug.LogError("[Fix026] 'vSyncCount' field not found on GameManager — field may have been renamed.");
+                return;
+            }
+
+            if (vsyncProp.intValue == 0)
+            {
+                Debug.Log("[Fix026] GameManager vSyncCount already 0 — nothing to do.");
+                return;
+            }
+
+            vsyncProp.intValue = 0;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(gm);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = gm.gameObject;
+            EditorGUIUtility.PingObject(gm.gameObject);
+            Debug.Log("[Fix026] GameManager vSyncCount set to 0 in Core.unity (frame-rate cap now governs).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/027 - Set Core GameManager FPS cap to 60")]
+        private static void Fix027()
+        {
+            // The GameManager instance in Core.unity has targetFrameRate=144 serialized; the code
+            // default is now 60 but that does not touch the existing scene value. This sets the live
+            // scene value to 60 so the frame-rate cap is 60 FPS.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            BlastFrame.Core.GameManager gm = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                gm = root.GetComponentInChildren<BlastFrame.Core.GameManager>(true);
+                if (gm != null) break;
+            }
+            if (gm == null)
+            {
+                Debug.LogError("[Fix027] No GameManager in Core.unity — run Fix 001 first.");
+                return;
+            }
+
+            var so = new SerializedObject(gm);
+            var fpsProp = so.FindProperty("targetFrameRate");
+            if (fpsProp == null)
+            {
+                Debug.LogError("[Fix027] 'targetFrameRate' field not found on GameManager — field may have been renamed.");
+                return;
+            }
+
+            if (fpsProp.intValue == 60)
+            {
+                Debug.Log("[Fix027] GameManager targetFrameRate already 60 — nothing to do.");
+                return;
+            }
+
+            fpsProp.intValue = 60;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(gm);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = gm.gameObject;
+            EditorGUIUtility.PingObject(gm.gameObject);
+            Debug.Log("[Fix027] GameManager targetFrameRate set to 60 in Core.unity.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/028 - Re-enable VSync on Core GameManager (tearing fix)")]
+        private static void Fix028()
+        {
+            // FPS-cap-only (Fix026) still tears — a cap paces frames but does not align them to the
+            // display refresh; only VSync does. The perceived VSync mouse lag was largely TV image
+            // processing (fixed by the TV's Game Mode). This sets the Core.unity GameManager's
+            // serialized vSyncCount back to 1.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            BlastFrame.Core.GameManager gm = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                gm = root.GetComponentInChildren<BlastFrame.Core.GameManager>(true);
+                if (gm != null) break;
+            }
+            if (gm == null)
+            {
+                Debug.LogError("[Fix028] No GameManager in Core.unity — run Fix 001 first.");
+                return;
+            }
+
+            var so = new SerializedObject(gm);
+            var vsyncProp = so.FindProperty("vSyncCount");
+            if (vsyncProp == null)
+            {
+                Debug.LogError("[Fix028] 'vSyncCount' field not found on GameManager — field may have been renamed.");
+                return;
+            }
+
+            if (vsyncProp.intValue == 1)
+            {
+                Debug.Log("[Fix028] GameManager vSyncCount already 1 — nothing to do.");
+                return;
+            }
+
+            vsyncProp.intValue = 1;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(gm);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = gm.gameObject;
+            EditorGUIUtility.PingObject(gm.gameObject);
+            Debug.Log("[Fix028] GameManager vSyncCount set to 1 in Core.unity (VSync on — tearing eliminated).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/029 - Lower Player airDrag to 0.2 (momentum carry fix)")]
+        private static void Fix029()
+        {
+            // airDrag=2/s eats ~80% of inherited (platform/wall-jump/dash) horizontal velocity over a
+            // jump arc. Code default is now 0.2 but the Player instance in Core.unity has 2 serialized.
+            // Only overwrites if the value is still the old default 2 — a hand-tuned value is left alone.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            BlastFrame.Gameplay.Player.PlayerStats stats = null;
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                stats = root.GetComponentInChildren<BlastFrame.Gameplay.Player.PlayerStats>(true);
+                if (stats != null) break;
+            }
+            if (stats == null)
+            {
+                Debug.LogError("[Fix029] No PlayerStats in Core.unity — run Fix 011 first.");
+                return;
+            }
+
+            var so = new SerializedObject(stats);
+            var constProp = so.FindProperty("airDrag.ConstantValue");
+            var useConstProp = so.FindProperty("airDrag.UseConstant");
+            if (constProp == null || useConstProp == null)
+            {
+                Debug.LogError("[Fix029] 'airDrag' FloatReference not found on PlayerStats — field may have been renamed.");
+                return;
+            }
+
+            if (!useConstProp.boolValue)
+            {
+                Debug.LogWarning("[Fix029] airDrag uses a FloatVariable asset, not a constant — adjust the asset by hand. Aborting.");
+                return;
+            }
+
+            if (!Mathf.Approximately(constProp.floatValue, 2f))
+            {
+                Debug.LogWarning($"[Fix029] airDrag is {constProp.floatValue} (not the old default 2) — looks hand-tuned, leaving it alone.");
+                return;
+            }
+
+            constProp.floatValue = 0.2f;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(stats);
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+
+            Selection.activeObject = stats.gameObject;
+            EditorGUIUtility.PingObject(stats.gameObject);
+            Debug.Log("[Fix029] Player airDrag 2 → 0.2 in Core.unity (inherited momentum now survives the jump arc).");
         }
     }
 }
