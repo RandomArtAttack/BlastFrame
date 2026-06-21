@@ -37,12 +37,17 @@ namespace BlastFrame.Gameplay.Player
         [Tooltip("Forward speed applied to charged projectiles (m/s). Slightly slower for heavier feel.")]
         [SerializeField] private FloatReference chargedProjectileSpeed = new FloatReference(22f);
 
+        [Tooltip("Gun-barrel transform projectiles spawn from. Drag the barrel tip empty (a child of the weapon/camera) here — its position is the spawn point and its blue +Z axis is the fire direction. Leave empty to fall back to this camera transform.")]
+        [SerializeField] private Transform muzzle;
+
         private IPoolManager _pool;
-        private Transform _muzzle;       // this transform — camera IS the muzzle
+        private Transform _muzzle;       // resolved barrel, or camera transform as fallback
 
         private void Awake()
         {
-            _muzzle = transform;
+            // Self-containment: muzzle is an own-child transform of the player/weapon rig
+            // (same allowance as platform waypoints). Fall back to the camera transform if unassigned.
+            _muzzle = muzzle != null ? muzzle : transform;
         }
 
         private void Start()

@@ -60,6 +60,7 @@ namespace BlastFrame.Gameplay.Player.Movement
                 _bufferTimer = 0f;
                 _coyoteTimer = 0f;
                 _rising = true;
+                state.JumpFired = true; // tell PlatformRider to release the platform carry (snapshot is this tick)
             }
 
             if (_cutQueued)

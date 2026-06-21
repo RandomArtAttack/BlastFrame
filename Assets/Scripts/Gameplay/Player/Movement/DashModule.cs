@@ -42,14 +42,23 @@ namespace BlastFrame.Gameplay.Player.Movement
         {
             _input = ServiceLocator.Get<IPlayerInput>();
             _input.OnDashPressed += OnDashPressed;
+            _input.OnDashReleased += OnDashReleased;
         }
 
         private void OnDestroy()
         {
-            if (_input != null) _input.OnDashPressed -= OnDashPressed;
+            if (_input != null)
+            {
+                _input.OnDashPressed -= OnDashPressed;
+                _input.OnDashReleased -= OnDashReleased;
+            }
         }
 
         private void OnDashPressed() => _dashQueued = true;
+
+        // Releasing the dash button ends the dash early (duration is a cap, not a fixed length).
+        // Leaves horizontal velocity untouched so momentum bleeds out like a naturally-expired dash.
+        private void OnDashReleased() => _dashTimer = 0f;
 
         public void Tick(ref MoveState state)
         {

@@ -25,7 +25,9 @@ namespace BlastFrame.Core
     /// <summary>Waypoint traversal mode for MovingPlatform.</summary>
     public enum PathMode
     {
-        Cycle,
-        PingPong
+        Cycle,              // loop: after the last waypoint, travel back to the first as a path segment
+        PingPong,           // reverse direction at each end
+        ReuseLoopTeleport   // on reaching the last waypoint, INSTANTLY warp back to the first and continue
+                            // (one-way conveyor; lets a platform vanish into an inaccessible area and reappear)
     }
 }

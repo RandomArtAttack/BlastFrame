@@ -23,11 +23,15 @@ namespace BlastFrame.Gameplay.Player
         private PlayerStats _stats;
         private IPlayerInput _input;
         private readonly List<IMovementModule> _modules = new List<IMovementModule>();
+        private Movement.PlatformRiderModule _rider;
+        private bool _wasRiding; // last tick's PlatformRider.IsRiding — so base locomotion can treat
+                                 // riding as grounded for the horizontal reset (no carry double-add)
 
         private void Awake()
         {
             _motor = GetComponent<PlayerMotor>();
             _stats = GetComponent<PlayerStats>();
+            _rider = GetComponent<Movement.PlatformRiderModule>();
 
             GetComponents(_modules);
             _modules.Sort((a, b) => a.Order.CompareTo(b.Order));
@@ -66,6 +70,9 @@ namespace BlastFrame.Gameplay.Player
             for (int i = 0; i < _modules.Count; i++) _modules[i].Tick(ref state);
 
             _motor.Move(state.Velocity, dt);
+
+            // Remember whether the rider carried us this tick, for next tick's base locomotion.
+            _wasRiding = _rider != null && _rider.IsRiding;
         }
 
         private void ApplyBaseLocomotion(ref MoveState state, float dt)
@@ -73,7 +80,10 @@ namespace BlastFrame.Gameplay.Player
             Vector3 horiz = new Vector3(state.Velocity.x, 0f, state.Velocity.z);
             Vector3 target = state.WishDir * _stats.MoveSpeed;
 
-            if (state.IsGrounded)
+            // Riding a platform counts as grounded for the horizontal RESET: the PlatformRider adds the
+            // platform velocity on top of a clean target each tick, so without this reset a grace-carry
+            // tick (grounded flicker on a bobbing platform) would keep momentum AND add platform = double.
+            if (state.IsGrounded || _wasRiding)
             {
                 horiz = target; // snappy ground control
             }

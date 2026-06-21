@@ -74,6 +74,7 @@ namespace BlastFrame.Gameplay.Player.Movement
                 _lockoutTimer = wallJumpLockout;
                 _lockoutHoriz = new Vector3(away.x, 0f, away.z);
                 _sliding = false;
+                state.JumpFired = true; // release any platform carry (same as a normal jump)
             }
 
             if (_lockoutTimer > 0f)

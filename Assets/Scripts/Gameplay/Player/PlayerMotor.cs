@@ -32,11 +32,13 @@ namespace BlastFrame.Gameplay.Player
 
         private const int MaxBounces = 5;
         private const float GroundProbe = 0.08f;
+        private const int MaxDepenetrationIterations = 3;
 
         private Rigidbody _rb;
         private CapsuleCollider _capsule;
         private readonly RaycastHit[] _hitBuffer = new RaycastHit[8];
         private readonly Vector3[] _wallProbeDirs = new Vector3[4];
+        private readonly Collider[] _overlapBuffer = new Collider[8];
 
         public Vector3 Velocity { get; set; }
         public bool IsGrounded { get; private set; }
@@ -67,7 +69,12 @@ namespace BlastFrame.Gameplay.Player
             IsOnWall = false;
             WallNormal = Vector3.zero;
 
-            Vector3 startPos = _rb.position;
+            // Depenetration FIRST: a moving kinematic collider (bobbing rock, moving platform) can drive
+            // itself INTO the capsule between ticks, and two kinematic bodies never resolve that in PhysX.
+            // A sweep started from inside a collider reports distance 0 (skipped in CapsuleCast), so without
+            // this the player slides straight through. Push out of any current overlap so every sweep below
+            // begins from clean, non-penetrating space. This is the "player goes through it sometimes" fix.
+            Vector3 startPos = ResolveOverlaps(_rb.position);
             Vector3 inVelocity = velocity;
 
             // --- Horizontal pass: walls + slopes (no vertical component) ---
@@ -242,6 +249,44 @@ namespace BlastFrame.Gameplay.Player
             GroundNormal = grounded ? hit.normal : Vector3.up;
 
             if (grounded && velocity.y < 0f) velocity.y = 0f;
+        }
+
+        /// <summary>Pushes the capsule out of any colliders it currently overlaps, using the minimal
+        /// translation vector from Physics.ComputePenetration. Iterates a few times so overlaps with
+        /// several colliders (corners) converge. Returns the corrected position. Run BEFORE the sweeps so
+        /// a collider that moved into the player (moving platform / bobbing rock) can't leave the capsule
+        /// embedded — an embedded capsule's sweeps report distance 0 and get skipped, which is the
+        /// "player falls through it" bug. A resting capsule sits a skin-width off its ground, so this is a
+        /// no-op (single cheap query) in the common case.</summary>
+        private Vector3 ResolveOverlaps(Vector3 pos)
+        {
+            for (int iter = 0; iter < MaxDepenetrationIterations; iter++)
+            {
+                GetCapsulePoints(pos, out Vector3 p1, out Vector3 p2, out float radius);
+                int count = Physics.OverlapCapsuleNonAlloc(p1, p2, radius, _overlapBuffer, collisionMask, QueryTriggerInteraction.Ignore);
+
+                bool pushed = false;
+                for (int i = 0; i < count; i++)
+                {
+                    Collider other = _overlapBuffer[i];
+                    if (other == _capsule) continue;
+
+                    Transform ot = other.transform;
+                    // pos is the root transform position; ComputePenetration applies the capsule's
+                    // center offset itself, so pass the raw root pos (not the capsule centre).
+                    if (Physics.ComputePenetration(
+                            _capsule, pos, transform.rotation,
+                            other, ot.position, ot.rotation,
+                            out Vector3 dir, out float dist))
+                    {
+                        pos += dir * (dist + skinWidth); // + skin so the follow-up sweep isn't flush (dist 0)
+                        pushed = true;
+                    }
+                }
+
+                if (!pushed) break; // separated — nothing left to resolve
+            }
+            return pos;
         }
 
         private bool CapsuleCast(Vector3 pos, Vector3 dir, float dist, out RaycastHit closest)

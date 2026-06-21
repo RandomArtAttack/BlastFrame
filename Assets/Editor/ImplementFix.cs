@@ -2871,5 +2871,867 @@ namespace BlastFrame.EditorTools
             AssetDatabase.SaveAssets();
             Debug.Log($"[Fix030] DevTex materials: {converted} converted Standard → URP Lit, {skipped} skipped (already URP or not a Standard material).");
         }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/037 - Rebuild Player Camera Child In Core")]
+        private static void Fix037()
+        {
+            // Reconstructs the deleted "Camera" child on the existing Player, exactly as Fix 004 +
+            // Fix 012 originally built it: eye-height FP camera (Camera + AudioListener +
+            // FirstPersonCamera + CameraShape) plus the shooter rig (ChargeShot + PlayerShooter),
+            // since the camera transform doubles as the muzzle. Does NOT touch the Player root or
+            // its other components.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            if (player == null)
+            {
+                Debug.LogError("[Fix037] No 'Player' found in Core — run Fix 004 first.");
+                return;
+            }
+
+            if (player.transform.Find("Camera") != null)
+            {
+                Debug.LogWarning("[Fix037] Player already has a 'Camera' child — aborting to avoid duplicates.");
+                return;
+            }
+
+            var camGo = new GameObject("Camera");
+            camGo.transform.SetParent(player.transform, false);
+            camGo.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+            camGo.tag = "MainCamera";
+            camGo.AddComponent<Camera>();
+            camGo.AddComponent<AudioListener>();
+            var fpc = camGo.AddComponent<FirstPersonCamera>();
+            camGo.AddComponent<CameraShake>();
+
+            // Wire the camera's body field to the player root (FirstPersonCamera yaws the body).
+            var fso = new SerializedObject(fpc);
+            fso.FindProperty("body").objectReferenceValue = player.transform;
+            fso.ApplyModifiedPropertiesWithoutUndo();
+
+            // Camera doubles as the muzzle — restore the shooter rig (was added by Fix 012).
+            camGo.AddComponent<BlastFrame.Gameplay.Weapons.ChargeShot>();
+            camGo.AddComponent<BlastFrame.Gameplay.Player.PlayerShooter>();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = camGo;
+            EditorGUIUtility.PingObject(camGo);
+            Debug.Log("[Fix037] Rebuilt Player/Camera child in Core (FP camera + shake + shooter rig).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/038 - Create RAA URP Lit Projection Material")]
+        private static void Fix038()
+        {
+            // Creates a fresh material that uses the "RAA Materials/RAA URP Lit Projection" shader,
+            // with triplanar projection ON by default. Does NOT overwrite an existing material —
+            // material tuning fields are developer-editable, so it bails if the asset already exists.
+            const string dir = "Assets/RAA Materials";
+            const string path = dir + "/M_RAA_LitProjection.mat";
+
+            var shader = Shader.Find("RAA Materials/RAA URP Lit Projection");
+            if (shader == null)
+            {
+                Debug.LogError("[Fix038] Shader 'RAA Materials/RAA URP Lit Projection' not found — let the editor compile the shader first, then re-run.");
+                return;
+            }
+
+            if (AssetDatabase.LoadAssetAtPath<Material>(path) != null)
+            {
+                Debug.LogWarning($"[Fix038] {path} already exists — aborting so hand-tuned values are not overwritten.");
+                return;
+            }
+
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            var mat = new Material(shader) { name = "M_RAA_LitProjection" };
+            // Triplanar ON by default (matches the shader's _Projection default of 1).
+            mat.SetFloat("_Projection", 1f);
+            mat.EnableKeyword("_RAA_PROJECTION_ON");
+
+            AssetDatabase.CreateAsset(mat, path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = mat;
+            EditorGUIUtility.PingObject(mat);
+            Debug.Log($"[Fix038] Created {path} (RAA URP Lit Projection, triplanar ON).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/039 - Enable Post Processing On Player Camera")]
+        private static void Fix039()
+        {
+            // The Player's FP Camera had Post Processing disabled on its UniversalAdditionalCameraData,
+            // so the Global Volume (tonemapping/bloom/etc.) was being ignored entirely. This flips that
+            // single toggle ON. Volume trigger + layer mask were already correct, so this is all that's
+            // needed. Does NOT touch antialiasing or any other camera setting.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            if (player == null)
+            {
+                Debug.LogError("[Fix039] No 'Player' found in Core — run Fix 004 / 037 first.");
+                return;
+            }
+
+            var camT = player.transform.Find("Camera");
+            if (camT == null)
+            {
+                Debug.LogError("[Fix039] Player has no 'Camera' child — run Fix 037 first.");
+                return;
+            }
+
+            var camData = camT.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (camData == null)
+            {
+                Debug.LogError("[Fix039] Camera has no UniversalAdditionalCameraData — is URP active?");
+                return;
+            }
+
+            if (camData.renderPostProcessing)
+            {
+                Debug.LogWarning("[Fix039] Post Processing already enabled on Player camera — nothing to do.");
+                return;
+            }
+
+            camData.renderPostProcessing = true;
+            EditorUtility.SetDirty(camData);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = camT.gameObject;
+            EditorGUIUtility.PingObject(camT.gameObject);
+            Debug.Log("[Fix039] Enabled Post Processing on Player camera — Global Volume now applies.");
+        }
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/040 - Point Standalone quality tier at PC (stop Play downgrade)")]
+        private static void Fix040()
+        {
+            // ROOT CAUSE: QualitySettings had m_PerPlatformDefaultQuality[Standalone] = 0 (the "Mobile"
+            // tier -> Mobile_RPAsset: renderScale 0.8, MSAA off, soft shadows unsupported, 1 cascade,
+            // 1024 main shadowmap, no additional-light shadows). Scene view / edit-mode Game view use the
+            // active tier (m_CurrentQuality = 1 = "PC" -> PC_RPAsset, full quality), so it LOOKS great until
+            // you press Play: Play simulates the Standalone build target, which uses that platform's default
+            // tier = Mobile = downgrade. This fix repoints the Standalone default at the "PC" tier so Play
+            // matches the editor. The Mobile tier is preserved untouched for any future mobile build.
+            int pcIndex = System.Array.IndexOf(QualitySettings.names, "PC");
+            if (pcIndex < 0)
+            {
+                Debug.LogError("[Fix040] No quality level named 'PC' found — aborting. Quality levels: "
+                    + string.Join(", ", QualitySettings.names));
+                return;
+            }
+
+            var so = new SerializedObject(UnityEditor.Unsupported.GetSerializedAssetInterfaceSingleton("QualitySettings"));
+            so.Update();
+
+            bool inMap = false;
+            bool keyIsStandalone = false;
+            bool changed = false;
+            string previousValue = "(unchanged)";
+
+            var iter = so.GetIterator();
+            while (iter.NextVisible(true))
+            {
+                if (!iter.propertyPath.StartsWith("m_PerPlatformDefaultQuality"))
+                {
+                    if (inMap) break; // iterated past the map block
+                    continue;
+                }
+                inMap = true;
+
+                if (iter.propertyType == SerializedPropertyType.String)
+                {
+                    keyIsStandalone = iter.stringValue == "Standalone";
+                }
+                else if (iter.propertyType == SerializedPropertyType.Integer && keyIsStandalone)
+                {
+                    previousValue = iter.intValue.ToString();
+                    if (iter.intValue != pcIndex)
+                    {
+                        iter.intValue = pcIndex;
+                        changed = true;
+                    }
+                    keyIsStandalone = false;
+                }
+            }
+
+            if (changed)
+            {
+                so.ApplyModifiedProperties();
+                AssetDatabase.SaveAssets();
+                Debug.Log($"[Fix040] Standalone default quality tier set to index {pcIndex} ('PC') — was index {previousValue}. "
+                    + "Re-enter Play mode: lighting/shadows should now match the Scene view. "
+                    + "If it still downgrades, set the Standalone default manually (see Manual Steps).");
+            }
+            else if (!inMap)
+            {
+                Debug.LogWarning("[Fix040] Could not locate the m_PerPlatformDefaultQuality map via SerializedObject. "
+                    + "Set it by hand: Project Settings > Quality, click the dropdown on the Windows/Standalone column "
+                    + "header and choose the 'PC' row as the default tier.");
+            }
+            else
+            {
+                Debug.Log($"[Fix040] Standalone default quality tier was already index {previousValue} ('PC') — nothing to change. "
+                    + "If Play still downgrades, the trigger is elsewhere (active build target group, or a per-camera override).");
+            }
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/041 - Viewmodel overlay camera for gun (render in front, no wall clip)")]
+        private static void Fix041()
+        {
+            // Makes the first-person gun render on top of all world geometry so it never clips into
+            // walls. URP camera-stacking approach (matches the project's viewmodel = camera-stacking note):
+            //   1. Ensure a "Viewmodel" layer exists.
+            //   2. Exclude that layer from the base Player camera's culling mask.
+            //   3. Add an Overlay camera child ("ViewmodelCamera") that ONLY renders the Viewmodel layer.
+            //      Overlay cameras clear depth and composite on top, so the gun always draws in front
+            //      regardless of world depth. Tiny near clip stops the barrel clipping at the near plane.
+            //   4. Push the overlay onto the base camera's stack.
+            // Assigning the gun GameObject(s) to the Viewmodel layer is a manual step (this fix doesn't
+            // guess which object is the gun). Does NOT touch the base camera's other settings.
+            const string LayerName = "Viewmodel";
+
+            int layer = EnsureLayer(LayerName);
+            if (layer < 0)
+            {
+                Debug.LogError("[Fix041] No free user layer slot (8-31) to create 'Viewmodel'. Free one in Project Settings > Tags and Layers, then re-run.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            if (player == null)
+            {
+                Debug.LogError("[Fix041] No 'Player' found in Core — run Fix 004 / 037 first.");
+                return;
+            }
+
+            var camT = player.transform.Find("Camera");
+            if (camT == null)
+            {
+                Debug.LogError("[Fix041] Player has no 'Camera' child — run Fix 037 first.");
+                return;
+            }
+
+            var baseCam = camT.GetComponent<Camera>();
+            var baseData = camT.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (baseCam == null || baseData == null)
+            {
+                Debug.LogError("[Fix041] Player camera missing Camera / UniversalAdditionalCameraData — is URP active?");
+                return;
+            }
+
+            // Base camera stops rendering the Viewmodel layer (the overlay owns it).
+            baseCam.cullingMask &= ~(1 << layer);
+            baseData.renderType = UnityEngine.Rendering.Universal.CameraRenderType.Base;
+            EditorUtility.SetDirty(baseCam);
+            EditorUtility.SetDirty(baseData);
+
+            // Find or create the overlay camera as a child of the base camera (identity local transform,
+            // so it tracks the FP camera exactly).
+            var overlayT = camT.Find("ViewmodelCamera");
+            GameObject overlayGo;
+            if (overlayT == null)
+            {
+                overlayGo = new GameObject("ViewmodelCamera");
+                overlayGo.transform.SetParent(camT, false);
+            }
+            else
+            {
+                overlayGo = overlayT.gameObject;
+            }
+
+            var overlayCam = overlayGo.GetComponent<Camera>();
+            if (overlayCam == null) overlayCam = overlayGo.AddComponent<Camera>();
+            overlayCam.cullingMask = 1 << layer;   // ONLY the gun
+            overlayCam.nearClipPlane = 0.01f;       // barrel can sit very close without clipping
+            overlayCam.fieldOfView = baseCam.fieldOfView;
+
+            // Overlay cameras must not carry an AudioListener (the base camera owns it).
+            var stale = overlayGo.GetComponent<AudioListener>();
+            if (stale != null) Object.DestroyImmediate(stale);
+
+            var overlayData = overlayGo.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (overlayData == null) overlayData = overlayGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            overlayData.renderType = UnityEngine.Rendering.Universal.CameraRenderType.Overlay;
+            EditorUtility.SetDirty(overlayCam);
+            EditorUtility.SetDirty(overlayData);
+
+            // Push the overlay onto the base camera's stack (no duplicates).
+            if (!baseData.cameraStack.Contains(overlayCam))
+                baseData.cameraStack.Add(overlayCam);
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = overlayGo;
+            EditorGUIUtility.PingObject(overlayGo);
+            Debug.Log($"[Fix041] Viewmodel overlay camera ready (layer '{LayerName}' = {layer}). "
+                + "Now set your gun GameObject (and its children) to the 'Viewmodel' layer — see Manual Steps.");
+
+            // -- inline helper -------------------------------------------------------------------
+            int EnsureLayer(string name)
+            {
+                var tagManager = new SerializedObject(
+                    AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+                var layers = tagManager.FindProperty("layers");
+
+                // Already present?
+                for (int i = 0; i < layers.arraySize; i++)
+                {
+                    if (layers.GetArrayElementAtIndex(i).stringValue == name) return i;
+                }
+                // First free user slot (8-31).
+                for (int i = 8; i < layers.arraySize; i++)
+                {
+                    var el = layers.GetArrayElementAtIndex(i);
+                    if (string.IsNullOrEmpty(el.stringValue))
+                    {
+                        el.stringValue = name;
+                        tagManager.ApplyModifiedPropertiesWithoutUndo();
+                        return i;
+                    }
+                }
+                return -1;
+            }
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/042 - Exclude Viewmodel layer from Player collisionMask (gun = not a wall)")]
+        private static void Fix042()
+        {
+            // The first-person gun (on the 'Viewmodel' layer, Fix 041) was being swept as a wall by
+            // PlayerMotor: its collide-and-slide / WallProbe only skip the player's own capsule, so any
+            // other collider parented under the player reads as world geometry. This strips the Viewmodel
+            // bit out of PlayerMotor.collisionMask so viewmodel geometry can never count as ground/wall.
+            // (Best practice is also to remove the collider from the gun entirely — see Manual Steps.)
+            int layer = LayerMask.NameToLayer("Viewmodel");
+            if (layer < 0)
+            {
+                Debug.LogError("[Fix042] No 'Viewmodel' layer — run Fix 041 first.");
+                return;
+            }
+
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            if (player == null)
+            {
+                Debug.LogError("[Fix042] No 'Player' found in Core — run Fix 004 / 037 first.");
+                return;
+            }
+
+            if (!player.TryGetComponent<BlastFrame.Gameplay.Player.PlayerMotor>(out var motor))
+            {
+                Debug.LogError("[Fix042] Player has no PlayerMotor component.");
+                return;
+            }
+
+            var so = new SerializedObject(motor);
+            var maskProp = so.FindProperty("collisionMask");
+            int before = maskProp.intValue;
+            int after = before & ~(1 << layer);
+
+            if (after == before)
+            {
+                Debug.LogWarning("[Fix042] 'Viewmodel' already excluded from PlayerMotor.collisionMask — nothing to do.");
+                return;
+            }
+
+            maskProp.intValue = after;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = player;
+            EditorGUIUtility.PingObject(player);
+            Debug.Log($"[Fix042] Excluded 'Viewmodel' (layer {layer}) from PlayerMotor.collisionMask — the gun no longer counts as a wall/ground.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/043 - erase scene: bake-match (enable Mixed light, probe box-proj 512, Realtime GI off)")]
+        private static void Fix043()
+        {
+            // Makes the BAKED result match the live Mixed preview in 'erase'. Operates on the CURRENTLY
+            // OPEN scene (does NOT reopen — erase is open and dirty with the artist's work). Three surgical
+            // changes, all observed wrong via MCP read of the scene:
+            //   1. Enable the 'Directional Light' GameObject (it was INACTIVE -> excluded from the bake, so
+            //      its colour never baked and it wasn't visible).
+            //   2. Reflection Probe: Box Projection ON + Resolution 512 (was off / 128 -> blurry, parallax-
+            //      wrong reflections on smooth metal).
+            //   3. Realtime Global Illumination OFF on the scene's Lighting Settings (was ON -> the live
+            //      Enlighten preview never matches the Progressive GPU bake; off = viewport previews the
+            //      true baked path).
+            // DELIBERATELY does NOT touch bake-quality tuning the artist may have hand-set (lightmap
+            // resolution, bounces, sample counts, atlas size) — adjust those by hand. Marks the scene dirty
+            // but does NOT force-save it (so it won't silently bake in other unsaved edits); save with Ctrl+S.
+            var scene = EditorSceneManager.GetActiveScene();
+            if (scene.name != "erase")
+            {
+                Debug.LogError($"[Fix043] Active scene is '{scene.name}', not 'erase'. Open Assets/Scenes/erase.unity first, then re-run.");
+                return;
+            }
+
+            var lights = GameObject.Find("Lights");
+            if (lights == null)
+            {
+                Debug.LogError("[Fix043] No 'Lights' group found in the active scene — aborting.");
+                return;
+            }
+
+            var changes = new System.Collections.Generic.List<string>();
+
+            // 1. Enable the Mixed directional light. Transform.Find locates INACTIVE children (GameObject.Find would not).
+            var dirLightT = lights.transform.Find("Directional Light");
+            if (dirLightT == null)
+                Debug.LogWarning("[Fix043] 'Lights/Directional Light' not found — skipping light enable.");
+            else if (!dirLightT.gameObject.activeSelf)
+            {
+                dirLightT.gameObject.SetActive(true);
+                changes.Add("enabled 'Directional Light' GameObject");
+            }
+
+            // 2. Reflection Probe box projection + resolution.
+            var probeT = lights.transform.Find("Reflection Probe");
+            if (probeT != null && probeT.TryGetComponent(out ReflectionProbe probe))
+            {
+                if (!probe.boxProjection) { probe.boxProjection = true; changes.Add("Reflection Probe Box Projection ON"); }
+                if (probe.resolution < 512) { probe.resolution = 512; changes.Add("Reflection Probe Resolution -> 512"); }
+                EditorUtility.SetDirty(probe);
+            }
+            else
+            {
+                Debug.LogWarning("[Fix043] 'Lights/Reflection Probe' not found — skipping probe tweaks.");
+            }
+
+            // 3. Realtime GI off (single correctness toggle on the lighting settings; leaves bake tuning alone).
+            try
+            {
+                var settings = Lightmapping.lightingSettings;
+                if (settings != null && settings.realtimeGI)
+                {
+                    settings.realtimeGI = false;
+                    EditorUtility.SetDirty(settings);
+                    AssetDatabase.SaveAssets();
+                    changes.Add("Realtime Global Illumination OFF (lighting settings)");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[Fix043] Couldn't read the scene's Lighting Settings asset to disable Realtime GI — "
+                    + "uncheck it by hand in Window > Rendering > Lighting. (" + e.Message + ")");
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            Selection.activeObject = lights;
+            EditorGUIUtility.PingObject(lights);
+
+            if (changes.Count == 0)
+                Debug.Log("[Fix043] Nothing needed changing — all targets already in the desired state.");
+            else
+                Debug.Log("[Fix043] Done: " + string.Join("; ", changes)
+                    + ". Save the scene (Ctrl+S), then Window > Rendering > Lighting > Generate Lighting (and re-bake APV). "
+                    + "Bump lightmap resolution/bounces by hand if you want sharper GI.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+
+        [MenuItem("Tools/Blast Frame/Implement Fix/044 - Create Heat Shimmer Particle Prefab")]
+        private static void Fix044()
+        {
+            // Builds a rising heat-shimmer ParticleSystem prefab using the "RAA Heat Distortion" shader
+            // (refracts _CameraOpaqueTexture). Drop the prefab over a lava surface and scale its Box
+            // emitter to fit. Creates the material if missing (does NOT overwrite a hand-tuned one) and
+            // bails if the prefab already exists so tuned settings aren't clobbered.
+            const string matPath = "Assets/RAA Materials/M_HeatShimmer.mat";
+            const string prefabDir = "Assets/Prefabs/VFX";
+            const string prefabPath = prefabDir + "/HeatShimmer.prefab";
+
+            var shader = Shader.Find("RAA Materials/RAA Heat Distortion");
+            if (shader == null)
+            {
+                Debug.LogError("[Fix044] Shader 'RAA Materials/RAA Heat Distortion' not found — let it compile first, then re-run.");
+                return;
+            }
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+            {
+                Debug.LogWarning($"[Fix044] {prefabPath} already exists — aborting so tuned particle settings aren't overwritten.");
+                return;
+            }
+
+            // Material (reuse if present so hand-tuned distortion values survive).
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+            if (mat == null)
+            {
+                mat = new Material(shader) { name = "M_HeatShimmer" };
+                AssetDatabase.CreateAsset(mat, matPath);
+            }
+
+            var go = new GameObject("HeatShimmer");
+            var ps = go.GetComponent<ParticleSystem>();
+            if (ps == null) ps = go.AddComponent<ParticleSystem>();
+
+            var main = ps.main;
+            main.loop = true;
+            main.duration = 5f;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 3f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(0f); // motion comes from Velocity-over-Lifetime
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.2f);
+            main.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.2831853f); // random spin for variety
+            main.startColor = Color.white; // rgb unused by the shader; alpha drives shimmer (set via gradient below)
+            main.gravityModifier = 0f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World; // rises in world, doesn't follow the emitter
+            main.maxParticles = 250;
+
+            var emission = ps.emission;
+            emission.enabled = true;
+            emission.rateOverTime = 18f;
+
+            var shape = ps.shape;
+            shape.enabled = true;
+            shape.shapeType = ParticleSystemShapeType.Box;
+            shape.scale = new Vector3(5f, 0.1f, 5f); // flat emit area — scale to fit the lava in-scene
+
+            var vel = ps.velocityOverLifetime;
+            vel.enabled = true;
+            vel.space = ParticleSystemSimulationSpace.World;
+            vel.x = new ParticleSystem.MinMaxCurve(-0.15f, 0.15f); // gentle sideways waver
+            vel.z = new ParticleSystem.MinMaxCurve(-0.15f, 0.15f);
+            vel.y = new ParticleSystem.MinMaxCurve(0.5f, 1.1f);    // rise
+
+            var sizeOverLife = ps.sizeOverLifetime;
+            sizeOverLife.enabled = true;
+            sizeOverLife.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.2f));
+
+            // Alpha ramps in then out so the distortion eases in/out (the shader scales by particle alpha).
+            var grad = new Gradient();
+            grad.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.25f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            var colOverLife = ps.colorOverLifetime;
+            colOverLife.enabled = true;
+            colOverLife.color = new ParticleSystem.MinMaxGradient(grad);
+
+            var rend = go.GetComponent<ParticleSystemRenderer>();
+            rend.renderMode = ParticleSystemRenderMode.Billboard;
+            rend.alignment = ParticleSystemRenderSpace.View;
+            rend.sharedMaterial = mat;
+
+            if (!Directory.Exists(prefabDir)) Directory.CreateDirectory(prefabDir);
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
+            Object.DestroyImmediate(go); // remove the temp instance from the open scene
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = prefab;
+            EditorGUIUtility.PingObject(prefab);
+            Debug.Log($"[Fix044] Created {prefabPath} (+ {matPath} if it was missing). Drag it over a lava surface, "
+                + "scale the emitter Box to fit, and tune Distortion Strength on the material.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/045 - Weapon vs owner layers (Player/Enemy/PlayerWeapon/EnemyWeapon + matrix + blast masks)")]
+        private static void Fix045()
+        {
+            // Creates four layers (Player, Enemy, PlayerWeapon, EnemyWeapon), disables the two
+            // collision-matrix pairs so a side's projectiles pass through that side, re-layers the
+            // projectile/explosion prefabs and the scene-side Player + every EnemyCore, and narrows
+            // the two AoE blast masks so a blast no longer catches its own owner.
+            //   - PlayerWeapon  x Player : OFF  (your shots/explosions never hit you)
+            //   - EnemyWeapon   x Enemy  : OFF  (no enemy friendly-fire / self-detonation)
+            // Projectiles use TRIGGER colliders; the layer collision matrix governs trigger events
+            // too, so no projectile code changes are needed.
+            // Layer assignment is SURGICAL: only the root + GameObjects that own a Collider move to
+            // the owner layer. The player's camera/viewmodel children have no colliders, so they
+            // keep their 'Viewmodel' layer (the gun overlay from Fix041/042 stays intact).
+
+            // ---- 1. Ensure the four layers exist, claiming the first free user slots ------------
+            int EnsureLayer(string layerName)
+            {
+                int existing = LayerMask.NameToLayer(layerName);
+                if (existing != -1) return existing;
+
+                var tm = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+                var layers = tm.FindProperty("layers");
+                for (int i = 6; i < layers.arraySize; i++) // 0-7 are builtin; start at the first user-usable slot
+                {
+                    var el = layers.GetArrayElementAtIndex(i);
+                    if (string.IsNullOrEmpty(el.stringValue))
+                    {
+                        el.stringValue = layerName;
+                        tm.ApplyModifiedProperties();
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            int playerLayer       = EnsureLayer("Player");
+            int enemyLayer        = EnsureLayer("Enemy");
+            int playerWeaponLayer = EnsureLayer("PlayerWeapon");
+            int enemyWeaponLayer  = EnsureLayer("EnemyWeapon");
+
+            if (playerLayer < 0 || enemyLayer < 0 || playerWeaponLayer < 0 || enemyWeaponLayer < 0)
+            {
+                Debug.LogError("[Fix045] Ran out of free layer slots — free some user layers in Project Settings > Tags and Layers, then re-run.");
+                return;
+            }
+
+            // ---- 2. Collision matrix: a side's weapon ignores that side ------------------------
+            Physics.IgnoreLayerCollision(playerWeaponLayer, playerLayer, true);
+            Physics.IgnoreLayerCollision(enemyWeaponLayer, enemyLayer, true);
+
+            // ---- 3. Re-layer the weapon prefabs (root + every collider GameObject) -------------
+            void SetOwnerLayer(GameObject root, int layer)
+            {
+                root.layer = layer;
+                foreach (var col in root.GetComponentsInChildren<Collider>(true))
+                    col.gameObject.layer = layer; // colliders are what the matrix actually filters
+            }
+
+            void RelayerPrefab(string path, int layer, int excludeBlastLayer)
+            {
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+                {
+                    Debug.LogWarning($"[Fix045] Prefab not found, skipped: {path}");
+                    return;
+                }
+                var root = PrefabUtility.LoadPrefabContents(path);
+                SetOwnerLayer(root, layer);
+
+                // Narrow the blast mask so the explosion's OverlapSphere skips its own owner.
+                // (Splash damage is layer-mask driven, NOT collision driven, so the matrix can't do this.)
+                if (excludeBlastLayer >= 0)
+                {
+                    var aoe = root.GetComponentInChildren<AoeExplosion>(true);
+                    if (aoe != null)
+                    {
+                        var so = new SerializedObject(aoe);
+                        var maskProp = so.FindProperty("damageLayers");
+                        if (maskProp != null) { maskProp.intValue = ~(1 << excludeBlastLayer); so.ApplyModifiedProperties(); }
+                    }
+                }
+
+                PrefabUtility.SaveAsPrefabAsset(root, path);
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+
+            const string projDir = "Assets/Prefabs/Projectiles/";
+            RelayerPrefab(projDir + "PlayerProjectile.prefab", playerWeaponLayer, -1);
+            RelayerPrefab(projDir + "Explosion.prefab",        playerWeaponLayer, playerLayer); // player charged-shot blast: don't hit the player
+            RelayerPrefab(projDir + "EnemyMissile.prefab",     enemyWeaponLayer,  -1);
+            RelayerPrefab(projDir + "ArcProjectile.prefab",    enemyWeaponLayer,  -1);
+            RelayerPrefab(projDir + "ArcExplosion.prefab",     enemyWeaponLayer,  enemyLayer);  // enemy arc blast: don't chain enemies
+
+            // ---- 4. Re-layer the scene-side owners in whatever scenes are currently open -------
+            int playersHit = 0, enemiesHit = 0;
+            foreach (var motor in Object.FindObjectsByType<PlayerMotor>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                SetOwnerLayer(motor.gameObject, playerLayer);
+                EditorSceneManager.MarkSceneDirty(motor.gameObject.scene);
+                playersHit++;
+            }
+            foreach (var core in Object.FindObjectsByType<BlastFrame.Gameplay.Enemies.EnemyCore>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                SetOwnerLayer(core.gameObject, enemyLayer);
+                EditorSceneManager.MarkSceneDirty(core.gameObject.scene);
+                enemiesHit++;
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Debug.Log($"[Fix045] Layers: Player={playerLayer} Enemy={enemyLayer} PlayerWeapon={playerWeaponLayer} EnemyWeapon={enemyWeaponLayer}. "
+                + $"Matrix: PlayerWeapon x Player OFF, EnemyWeapon x Enemy OFF. Relayered 5 weapon prefabs. "
+                + $"Scene owners relayered: {playersHit} player(s), {enemiesHit} enemy(ies). "
+                + (playersHit == 0 ? "NOTE: no Player found in any open scene — open Core.unity and re-run to layer it. " : "")
+                + (enemiesHit == 0 ? "NOTE: no EnemyCore found — open TestLevel.unity and re-run to layer the turrets." : ""));
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/046 - Enable Read-Write on lava meshes (RockBobber needs hit.textureCoord)")]
+        private static void Fix046()
+        {
+            // RockBobber now reads the REAL mesh UV + surface height under each rock from the downward
+            // raycast (RaycastHit.textureCoord / hit.point), instead of guessing the UV from local XZ.
+            // textureCoord only returns a real UV when the hit MeshCollider's mesh is Read/Write
+            // Enabled — these lava FBXs ship with it OFF. Turn it on and reimport.
+            // Import-setting ONLY: touches no hand-tuned material/SO field.
+            string[] lavaModels =
+            {
+                "Assets/Art/Level Assets/Lava Blockout Level/Lava River Plane.fbx",
+                "Assets/Art/Level Assets/Lava Blockout Level/Lava Falls.fbx",
+                "Assets/Art/Level Assets/Lava Blockout Level/Lava 001 Bridge.fbx",
+            };
+
+            int changed = 0, already = 0, missing = 0;
+            foreach (string path in lavaModels)
+            {
+                var importer = AssetImporter.GetAtPath(path) as ModelImporter;
+                if (importer == null)
+                {
+                    Debug.LogWarning($"[Fix046] Not a model / not found, skipped: {path}");
+                    missing++;
+                    continue;
+                }
+                if (importer.isReadable) { already++; continue; }
+                importer.isReadable = true;
+                importer.SaveAndReimport();
+                changed++;
+            }
+
+            Debug.Log($"[Fix046] Lava mesh Read/Write: {changed} enabled, {already} already on, {missing} missing. "
+                + "RockBobber can now read the real surface UV under each rock — re-enter Play mode to seat the bobs. "
+                + "If a rock still warns about an unreadable mesh, add that FBX path to this fix's lavaModels list.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/047 - Wire Lava River material into all RockBobbers (bob sourced only from the river)")]
+        private static void Fix047()
+        {
+            // RockBobber now drives the bob ONLY from the V.4 river (no sine fallback, no rest-over-ripple).
+            // Assigning the river material to each rock's River Material field makes the churn come from the
+            // river even when the rock sits over another lava piece (e.g. a ripple). Wiring only — touches
+            // no tuning field.
+            const string riverMatPath = "Assets/Art/Materials/Lava World Materials/Lava River.mat";
+            var river = AssetDatabase.LoadAssetAtPath<Material>(riverMatPath);
+            if (river == null)
+            {
+                Debug.LogError($"[Fix047] River material not found at {riverMatPath} — fix the path and re-run.");
+                return;
+            }
+
+            int wired = 0, total = 0;
+            foreach (var bob in Object.FindObjectsByType<BlastFrame.Gameplay.Environment.RockBobber>(
+                         FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                total++;
+                var so = new SerializedObject(bob);
+                var prop = so.FindProperty("riverMaterial");
+                if (prop == null) continue;
+                if (prop.objectReferenceValue != river)
+                {
+                    prop.objectReferenceValue = river;
+                    so.ApplyModifiedProperties();
+                    EditorSceneManager.MarkSceneDirty(bob.gameObject.scene);
+                    wired++;
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Fix047] River material wired into {wired}/{total} RockBobber(s) in the open scene(s). "
+                + (total == 0 ? "NOTE: no RockBobber found — open the lava scene and re-run." : "Re-enter Play mode; the bob is now sourced from the river."));
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/048 - Add LavaFlowRandomizer to lava-flow objects (per-object variety)")]
+        private static void Fix048()
+        {
+            // Adds LavaFlowRandomizer to every renderer whose material is an "RAA Lava Flow" (detected by the
+            // _BottomMove property), so several lava falls sharing one material stop scrolling in lockstep.
+            // Adds Include Children = false so each renderer is randomised exactly once; idempotent (skips a
+            // renderer that already has the component). Component-add only — touches no material asset.
+            int added = 0, skipped = 0, scanned = 0;
+            foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                bool isLavaFlow = false;
+                foreach (var m in r.sharedMaterials)
+                    if (m != null && m.HasProperty("_BottomMove")) { isLavaFlow = true; break; }
+                if (!isLavaFlow) continue;
+                scanned++;
+
+                if (r.GetComponent<BlastFrame.Gameplay.Environment.LavaFlowRandomizer>() != null) { skipped++; continue; }
+
+                var comp = Undo.AddComponent<BlastFrame.Gameplay.Environment.LavaFlowRandomizer>(r.gameObject);
+                var so = new SerializedObject(comp);
+                var incChildren = so.FindProperty("includeChildren");
+                if (incChildren != null) { incChildren.boolValue = false; so.ApplyModifiedPropertiesWithoutUndo(); }
+                EditorSceneManager.MarkSceneDirty(r.gameObject.scene);
+                added++;
+            }
+
+            Debug.Log($"[Fix048] LavaFlowRandomizer: added to {added} lava-flow object(s), {skipped} already had it, "
+                + $"of {scanned} lava-flow renderer(s) found. "
+                + (scanned == 0
+                    ? "NOTE: no lava-flow ('_BottomMove') material in the open scene — open the lava scene and re-run."
+                    : "Save the scene, then Play — each fall now offsets/scrolls independently."));
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/049 - Lava ejection glass: Render Face = Both (fix glass not rendering)")]
+        private static void Fix049()
+        {
+            // The ejection glass is a single-sided surface whose faces point away from view, so URP back-face
+            // culls it and only the opaque cutout shows. Set Render Face = Both (_Cull = 0). SURGICAL: touches
+            // ONLY _Cull + doubleSidedGI on this one material — never rewrites its other (hand-tuned) values.
+            const string path = "Assets/Art/Models/Lava Falls Tube/Lava Fall Ejection Glass Material.mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat == null)
+            {
+                Debug.LogError($"[Fix049] Glass material not found at {path} — fix the path and re-run.");
+                return;
+            }
+            if (!mat.HasProperty("_Cull"))
+            {
+                Debug.LogWarning($"[Fix049] '{mat.name}' has no _Cull property (not URP Lit?) — set Render Face by hand.");
+                return;
+            }
+
+            float before = mat.GetFloat("_Cull");
+            if (Mathf.Approximately(before, 0f))
+            {
+                Debug.Log($"[Fix049] '{mat.name}' Render Face is already Both (_Cull 0) — nothing to do.");
+                return;
+            }
+
+            mat.SetFloat("_Cull", 0f);   // 0 = Both (render both faces); was 2 = Back
+            mat.doubleSidedGI = true;    // match what URP's 'Both' toggle does for GI
+            EditorUtility.SetDirty(mat);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Fix049] '{mat.name}' Render Face -> Both (_Cull {before} -> 0). The glass should now render. "
+                + "If it looks SOLID instead of see-through, lower its Base Color/Base Map alpha by hand (a look choice, not changed here).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/050 - Remove duplicate LavaFlowRandomizers on the Lava Falls prefab")]
+        private static void Fix050()
+        {
+            // The Lava Falls prefab ended up with several LavaFlowRandomizer components stacked on the same
+            // objects (they each re-randomise the same renderer — redundant). Keep one per GameObject, remove
+            // the extras. Idempotent; removes duplicate components only — changes no values.
+            const string path = "Assets/Prefabs/Lava World/Lava Falls Prefab.prefab";
+            if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
+            {
+                Debug.LogError($"[Fix050] Prefab not found at {path} — fix the path and re-run.");
+                return;
+            }
+
+            var root = PrefabUtility.LoadPrefabContents(path);
+            int removed = 0;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true))
+            {
+                var comps = t.GetComponents<BlastFrame.Gameplay.Environment.LavaFlowRandomizer>();
+                for (int i = 1; i < comps.Length; i++) // keep [0], remove the rest
+                {
+                    Object.DestroyImmediate(comps[i]);
+                    removed++;
+                }
+            }
+            if (removed > 0) PrefabUtility.SaveAsPrefabAsset(root, path);
+            PrefabUtility.UnloadPrefabContents(root);
+
+            Debug.Log($"[Fix050] Removed {removed} duplicate LavaFlowRandomizer(s) from '{path}' (kept one per object).");
+        }
     }
 }

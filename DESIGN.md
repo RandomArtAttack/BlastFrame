@@ -55,8 +55,9 @@ editor tooling ships with each feature (`Tools/Blast Frame/...`); numbered `Impl
 
 ## 4. Movement (canonical spec — build to match; decisions locked 2026-05-30)
 
-Kinematic Rigidbody motor performing a manual move/collide sweep each FixedUpdate; exposes
-grounded/wall state. Modules are sibling components on the Player root, orchestrated by `PlayerController`.
+Kinematic Rigidbody motor performing a manual move/collide sweep each FixedUpdate (plus a per-tick
+depenetration pass via `Physics.ComputePenetration` so moving kinematic platforms can't tunnel the
+capsule); exposes grounded/wall state. Modules are sibling components on the Player root, orchestrated by `PlayerController`.
 **All numbers below are `FloatReference`/`IntReference` — tune in-editor; the values are design targets.**
 
 - **Ground feel — snappy / near-instant.** Horizontal velocity snaps to the target each tick and stops

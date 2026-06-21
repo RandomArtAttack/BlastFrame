@@ -1,17 +1,25 @@
-LAST LEFT OFF — 2026-06-12 (end of day)
-LAST ACTION: Arc turret "turret Shooter" finished as heavy mortar: barrel-driven constant-velocity
-  firing (shot follows the physical barrel, solver only steers it), LOS-gated fire (5-point check),
-  high-arc ballistics (min 45°), gravity 0.2x, 3x projectile exploding in ArcExplosion (r=1.5).
-  Also: DevTex triplanar world-projection shader (2 units/tile), MCP read-only policy enforced via
-  .claude/settings.json (writes denied — Implement Fix is the only write path).
-CURRENT STATE: Turret works in TestLevel per dev playtest iterations. Fixes 030-036 written;
-  dev confirmed running 031/034/035; 036 (gravity 0.2) written at session end.
-NEXT STEP: Verify Fix036 was run (turret projectileGravityScale should be 0.2, not 0.5) —
-  re-run it if the lob still feels heavy. Then playtest LOS gating around corners.
-PENDING MANUAL STEPS: possibly Tools > Blast Frame > Implement Fix > 036 (unconfirmed);
-  Fix030 (URP Lit convert) superseded by 031 (triplanar) — never needs running.
-BLOCKERS / OPEN QUESTIONS: mcp-unity get_gameobject is broken in this project (bridge fails
-  sending the response — "WebSocket error: An error has occurred in sending data"); use scene-file
-  grep or in-fix discovery instead. Explosion is faction-agnostic (hurts other enemies/turret) —
-  dev hasn't decided if that's wanted. EnemyStats.damage unused by arc projectile (explosion
-  prefab owns damage).
+LAST LEFT OFF — 2026-06-20 (end of day)
+LAST ACTION: Added MovingPlatform `startIndex` (start on any waypoint, then wrap per Path Mode).
+  Committed + pushed the day's work on branch docs/design-architecture.
+CURRENT STATE: Lava-world systems built & playtested —
+  - RockBobber: bobs on the V.4 lava river ONLY (no sine fallback), reads the real mesh UV under it,
+    eased "heft" via followSpeed (serialized).
+  - Moving + bobbing platform: a sibling RockBobber externally-drives MovingPlatform (single mover that
+    layers the bob onto the path + re-samples lava each tick). PathMode gained ReuseLoopTeleport (warp to
+    the first waypoint at the end) and a serialized startIndex (begin on any waypoint).
+  - Player carry fixed: PlatformRiderModule ride-grace + MoveState.JumpFired suppression (no more sliding
+    off a bobbing mover); PlayerMotor depenetration pass (no tunnelling through moving kinematic platforms).
+  - LavaFlowRandomizer (per-object texture offset/speed), EmissionPulse (glow throb).
+  - Glass fix + dedupe WRITTEN as Implement Fix 049 / 050. Implement fixes now run to 050.
+NEXT STEP: In Unity, run Implement Fix 049 (ejection glass Render Face = Both) + 050 (dedupe
+  LavaFlowRandomizers) and confirm the ejection glass now renders.
+PENDING MANUAL STEPS:
+  - Tools > Blast Frame > Implement Fix > 049 and 050 (not yet confirmed run).
+  - PC_Renderer.asset: restore the missing LavaDepthRendererFeature script OR remove the dead feature entry
+    (source of the recurring "PC_Renderer is missing RendererFeatures" console error). Left manual.
+  - Blender edge-split seams under light / baked-shadow lines: raise lightmap UV Pack Margin + resolution +
+    Stitch Seams, or move to weighted-normals + cage bake (welded mesh) and rebake.
+  - Set MovingPlatform Start Index per platform as desired.
+BLOCKERS / OPEN QUESTIONS:
+  - Is LavaDepthRendererFeature.cs lost (recreate it?) or should it be removed? Its script file is missing;
+    it is NOT what hid the glass (stock URP Lit renders in the normal transparent pass).

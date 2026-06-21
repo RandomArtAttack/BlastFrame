@@ -18,6 +18,8 @@ namespace BlastFrame.Gameplay.Player.Movement
         public Vector3 GroundNormal;
         public float DeltaTime;
         public Quaternion LookYaw;   // camera yaw, for orienting movement/impulses
+        public bool JumpFired;       // a jump/wall-jump launched THIS tick (set by Jump/WallSlide). The
+                                     // PlatformRider reads it to stop carrying mid-air after a deliberate jump.
     }
 
     /// <summary>

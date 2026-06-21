@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 6940255881567469948}
   - component: {fileID: 8253927779306543585}
   - component: {fileID: 7102506336156448814}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: ArcProjectile
   m_TagString: Untagged
   m_Icon: {fileID: 0}

@@ -59,3 +59,8 @@ crashlytics-build.properties
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Throwaway debug scratch script — never commit (per CLAUDE.md). Listed after the
+# Assets/**/*.meta un-ignore above so the later rule wins for this specific file.
+/Assets/Scripts/Debug/TestStat.cs
+/Assets/Scripts/Debug/TestStat.cs.meta

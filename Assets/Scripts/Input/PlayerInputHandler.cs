@@ -15,6 +15,7 @@ namespace BlastFrame.Input
         event Action OnJumpPressed;
         event Action OnJumpReleased;
         event Action OnDashPressed;
+        event Action OnDashReleased;
         event Action OnFirePressed;
         event Action OnFireReleased;
         event Action OnInteract;
@@ -41,6 +42,7 @@ namespace BlastFrame.Input
         public event Action OnJumpPressed;
         public event Action OnJumpReleased;
         public event Action OnDashPressed;
+        public event Action OnDashReleased;
         public event Action OnFirePressed;
         public event Action OnFireReleased;
         public event Action OnInteract;
@@ -59,6 +61,7 @@ namespace BlastFrame.Input
             _actions.Player.Jump.started += OnJumpStarted;
             _actions.Player.Jump.canceled += OnJumpCanceled;
             _actions.Player.Sprint.started += OnDashStarted;
+            _actions.Player.Sprint.canceled += OnDashCanceled;
             _actions.Player.Attack.started += OnFireStarted;
             _actions.Player.Attack.canceled += OnFireCanceled;
             _actions.Player.Interact.started += OnInteractStarted;
@@ -70,6 +73,7 @@ namespace BlastFrame.Input
             _actions.Player.Jump.started -= OnJumpStarted;
             _actions.Player.Jump.canceled -= OnJumpCanceled;
             _actions.Player.Sprint.started -= OnDashStarted;
+            _actions.Player.Sprint.canceled -= OnDashCanceled;
             _actions.Player.Attack.started -= OnFireStarted;
             _actions.Player.Attack.canceled -= OnFireCanceled;
             _actions.Player.Interact.started -= OnInteractStarted;
@@ -103,6 +107,7 @@ namespace BlastFrame.Input
         private void OnJumpStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnJumpPressed?.Invoke(); }
         private void OnJumpCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnJumpReleased?.Invoke(); }
         private void OnDashStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnDashPressed?.Invoke(); }
+        private void OnDashCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnDashReleased?.Invoke(); }
         private void OnFireStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnFirePressed?.Invoke(); }
         private void OnFireCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnFireReleased?.Invoke(); }
         private void OnInteractStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnInteract?.Invoke(); }

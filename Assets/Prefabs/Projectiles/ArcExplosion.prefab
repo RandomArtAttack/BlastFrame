@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 974910762920468748}
   - component: {fileID: 4016837251932688122}
   - component: {fileID: 7176141183419569949}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: ArcExplosion
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -117,4 +117,4 @@ MonoBehaviour:
     Variable: {fileID: 0}
   damageLayers:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 4294967167

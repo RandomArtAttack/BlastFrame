@@ -4,7 +4,9 @@
       "Bash(find Assets -iname \"*.prefab\")",
       "Bash(find Assets -iname \"*player*\")",
       "Bash(git pull *)",
-      "Bash(git merge *)"
+      "Bash(git merge *)",
+      "mcp__mcp-unity__get_material_info",
+      "Bash(git add *)"
     ]
   },
   "enabledMcpjsonServers": [
