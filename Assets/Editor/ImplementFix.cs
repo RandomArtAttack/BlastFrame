@@ -3733,5 +3733,134 @@ namespace BlastFrame.EditorTools
 
             Debug.Log($"[Fix050] Removed {removed} duplicate LavaFlowRandomizer(s) from '{path}' (kept one per object).");
         }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/051 - Insert YawPivot between Player and Camera (smooth horizontal look)")]
+        private static void Fix051()
+        {
+            // Horizontal mouse look stuttered because yaw was applied to the Player ROOT — an
+            // interpolated kinematic Rigidbody. Rigidbody interpolation overwrites that transform's
+            // rotation every render frame with a value quantised to the physics tick, so yaw juddered
+            // while pitch (on the plain Camera child) stayed smooth. Fix: insert a non-physics
+            // "YawPivot" between the root and the Camera. The pivot owns yaw at render rate (no
+            // Rigidbody, nothing to fight it); the root stops yawing entirely.
+            //
+            // Resulting hierarchy:  Player (root rb) -> YawPivot -> Camera -> (ViewmodelCamera)
+            //
+            // Rewires FirstPersonCamera.body to the pivot (it yaws whatever 'body' points at) and
+            // PlayerController.orientation to the pivot (movement/dash direction now read the pivot's
+            // yaw instead of the root). Idempotent: bails if a YawPivot already exists.
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+
+            var player = GameObject.Find("Player");
+            if (player == null)
+            {
+                Debug.LogError("[Fix051] No 'Player' found in Core — run Fix 004 first.");
+                return;
+            }
+
+            if (player.transform.Find("YawPivot") != null)
+            {
+                Debug.LogWarning("[Fix051] 'YawPivot' already exists on Player — aborting to avoid duplicates.");
+                return;
+            }
+
+            var camT = player.transform.Find("Camera");
+            if (camT == null)
+            {
+                Debug.LogError("[Fix051] Player has no 'Camera' child — run Fix 037 first.");
+                return;
+            }
+
+            // Create the pivot at the root's origin with identity local pose, then slot the Camera
+            // under it preserving the camera's world pose (eye height is unchanged).
+            var pivotGo = new GameObject("YawPivot");
+            pivotGo.transform.SetParent(player.transform, false);
+            pivotGo.transform.localPosition = Vector3.zero;
+            pivotGo.transform.localRotation = Quaternion.identity;
+            pivotGo.transform.localScale = Vector3.one;
+
+            camT.SetParent(pivotGo.transform, true); // worldPositionStays — camera keeps its world pose
+
+            // FirstPersonCamera yaws whatever 'body' references — point it at the pivot (was the root).
+            var fpc = camT.GetComponent<FirstPersonCamera>();
+            if (fpc != null)
+            {
+                var fso = new SerializedObject(fpc);
+                fso.FindProperty("body").objectReferenceValue = pivotGo.transform;
+                fso.ApplyModifiedPropertiesWithoutUndo();
+            }
+            else
+            {
+                Debug.LogWarning("[Fix051] Camera has no FirstPersonCamera component — pivot inserted, but " +
+                                 "wire the look script's body field to 'YawPivot' manually.");
+            }
+
+            // PlayerController reads facing (movement + dash direction) from the pivot, not the root.
+            var controller = player.GetComponent<BlastFrame.Gameplay.Player.PlayerController>();
+            if (controller != null)
+            {
+                var cso = new SerializedObject(controller);
+                var orientProp = cso.FindProperty("orientation");
+                if (orientProp != null)
+                {
+                    orientProp.objectReferenceValue = pivotGo.transform;
+                    cso.ApplyModifiedPropertiesWithoutUndo();
+                }
+                else
+                {
+                    Debug.LogWarning("[Fix051] PlayerController has no 'orientation' field — recompile scripts " +
+                                     "(the field was added alongside this fix), then re-run.");
+                }
+            }
+            else
+            {
+                Debug.LogError("[Fix051] Player has no PlayerController — cannot wire orientation.");
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = pivotGo;
+            EditorGUIUtility.PingObject(pivotGo);
+            Debug.Log("[Fix051] Inserted YawPivot (Player -> YawPivot -> Camera). FirstPersonCamera.body and " +
+                      "PlayerController.orientation now point at the pivot — horizontal look is render-rate smooth.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/052 - Add Ledge Vault Module To Player")]
+        private static void Fix052()
+        {
+            var scene = EditorSceneManager.OpenScene("Assets/Scenes/Core.unity", OpenSceneMode.Single);
+            var player = GameObject.Find("Player");
+            if (player == null) { Debug.LogError("[Fix052] No 'Player' in Core — run Fix 004 first."); return; }
+
+            var vault = player.GetComponent<LedgeVaultModule>();
+            if (vault == null) vault = player.AddComponent<LedgeVaultModule>();
+
+            // Probe mask = everything the player can hit MINUS Player + Viewmodel (gun is not a ledge).
+            int mask = ~0;
+            int playerLayer = LayerMask.NameToLayer("Player");
+            int viewmodelLayer = LayerMask.NameToLayer("Viewmodel");
+            if (playerLayer >= 0) mask &= ~(1 << playerLayer);
+            if (viewmodelLayer >= 0) mask &= ~(1 << viewmodelLayer);
+
+            var so = new SerializedObject(vault);
+            var maskProp = so.FindProperty("vaultMask");
+            if (maskProp != null)
+            {
+                maskProp.intValue = mask;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            else
+            {
+                Debug.LogWarning("[Fix052] LedgeVaultModule has no 'vaultMask' field — recompile scripts, then re-run.");
+            }
+
+            EditorSceneManager.MarkSceneDirty(scene);
+            EditorSceneManager.SaveScene(scene);
+            Selection.activeObject = player; EditorGUIUtility.PingObject(player);
+            Debug.Log("[Fix052] LedgeVaultModule added to Player; vaultMask set to exclude Player/Viewmodel. " +
+                      "Tune Max Vault Height / Vault Up Bonus on the component for feel.");
+        }
     }
 }

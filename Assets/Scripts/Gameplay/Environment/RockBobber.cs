@@ -74,6 +74,11 @@ namespace BlastFrame.Gameplay.Environment
                  "is carried by the rock's ACTUAL eased motion, so the carry stays in sync.")]
         [SerializeField] private FloatReference followSpeed = new FloatReference(8f);
 
+        [Tooltip("When this component is ENABLED (e.g. re-enabled mid-path by a MovingPlatform's enable-at-index), " +
+                 "the rock smoothly blends from wherever it currently is into the live bob over this many seconds " +
+                 "instead of snapping — INDEPENDENT of Follow Speed. 0 = snap immediately (old behaviour). ~0.5.")]
+        [SerializeField] private float enableLerpDuration = 0.5f;
+
         [Header("Surface tilt (optional)")]
         [Tooltip("If on, the rock tilts to match the local slope of the wave (finite-difference normal). " +
                  "Off = stays upright and only bobs vertically.")]
@@ -103,6 +108,9 @@ namespace BlastFrame.Gameplay.Environment
         private float _prevY;               // last ACTUAL (eased) world Y, for the ride velocity
         private float _prevPathX, _prevPathZ; // last tick's XZ, to detect a path teleport (ReuseLoopTeleport)
         private Vector3 _rideVelocity;      // world velocity handed to the rider this tick
+        private float _enableLerpTimer;     // seconds left in the on-enable blend (>0 = blending, not snapping)
+        private float _enableLerpFromY;     // world Y the on-enable blend starts from (captured first tick)
+        private bool _enableLerpInit;       // false until the blend's start Y has been captured
         private int _lavaMask;              // resolved lava layer mask (cached for per-tick re-sampling)
         private float _rayLen;              // resolved ray length (cached for per-tick re-sampling)
         private MovingPlatform _externalMover; // sibling that owns the XZ path (null = stationary rock)
@@ -136,11 +144,28 @@ namespace BlastFrame.Gameplay.Environment
             _rb.useGravity = false;
             _rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-            // Moving + bobbing: if a MovingPlatform shares this object, take over the final move (it would
-            // otherwise fight us for MovePosition) and let it just compute the path. We own the body.
-            if (TryGetComponent(out _externalMover))
-                _externalMover.SetExternallyDriven(true);
+            // Moving + bobbing: if a MovingPlatform shares this object we take over its final move (it would
+            // otherwise fight us for MovePosition). Resolve the ref here, but claim/release ownership in
+            // OnEnable/OnDisable — NOT here — so the claim tracks our enabled state.
+            TryGetComponent(out _externalMover);
         }
+
+        // Claim the platform's body while we're enabled; release it the instant we're disabled. This MUST be
+        // tied to enabled state: a MovingPlatform can disable this bobber per-waypoint (enable/disable-at-index)
+        // for a leg where the rock shouldn't bob (e.g. the under-lava ReuseLoopTeleport warp-return). If the
+        // claim stayed latched in Awake, a disabled bobber would leave the platform externally-driven with no
+        // driver actually moving it — the body freezes (then snaps when re-enabled). Releasing here hands
+        // MovePosition back to the MovingPlatform so it drives itself along the path until we re-enable.
+        private void OnEnable()
+        {
+            _externalMover?.SetExternallyDriven(true);
+            // Begin a time-based blend into the bob so re-enabling mid-path eases in instead of snapping.
+            // The start Y is captured on the first FixedUpdate (the body may not be placed yet here).
+            _enableLerpTimer = Mathf.Max(0f, enableLerpDuration);
+            _enableLerpInit = false;
+        }
+
+        private void OnDisable() => _externalMover?.SetExternallyDriven(false);
 
         private void Start()
         {
@@ -193,7 +218,25 @@ namespace BlastFrame.Gameplay.Environment
             bool teleported = (dx * dx + dz * dz) > TeleportJumpSqr;
 
             float newY;
-            if (teleported)
+            if (_enableLerpTimer > 0f && enableLerpDuration > 0f)
+            {
+                // ON-ENABLE BLEND: ease from the body's current Y into the live bob over enableLerpDuration,
+                // INDEPENDENT of Follow Speed and ignoring the teleport snap, so re-enabling mid-path glides in.
+                // Capture the start Y from the ACTUAL body — _prevY is stale after being disabled (the platform
+                // moved the body while this component was off).
+                if (!_enableLerpInit)
+                {
+                    _enableLerpFromY = _rb.position.y;
+                    _prevY = _enableLerpFromY;
+                    _enableLerpInit = true;
+                }
+                _enableLerpTimer -= dt;
+                float p = 1f - Mathf.Clamp01(_enableLerpTimer / enableLerpDuration);
+                float s = p * p * (3f - 2f * p); // smoothstep: soft start AND soft settle onto the bob
+                newY = Mathf.Lerp(_enableLerpFromY, targetY, s);
+                _rideVelocity = new Vector3(0f, (newY - _prevY) / dt, 0f);
+            }
+            else if (teleported)
             {
                 newY = targetY;
                 _rideVelocity = Vector3.zero;

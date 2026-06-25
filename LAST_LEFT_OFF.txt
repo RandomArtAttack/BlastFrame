@@ -1,25 +1,29 @@
-LAST LEFT OFF — 2026-06-20 (end of day)
-LAST ACTION: Added MovingPlatform `startIndex` (start on any waypoint, then wrap per Path Mode).
-  Committed + pushed the day's work on branch docs/design-architecture.
-CURRENT STATE: Lava-world systems built & playtested —
-  - RockBobber: bobs on the V.4 lava river ONLY (no sine fallback), reads the real mesh UV under it,
-    eased "heft" via followSpeed (serialized).
-  - Moving + bobbing platform: a sibling RockBobber externally-drives MovingPlatform (single mover that
-    layers the bob onto the path + re-samples lava each tick). PathMode gained ReuseLoopTeleport (warp to
-    the first waypoint at the end) and a serialized startIndex (begin on any waypoint).
-  - Player carry fixed: PlatformRiderModule ride-grace + MoveState.JumpFired suppression (no more sliding
-    off a bobbing mover); PlayerMotor depenetration pass (no tunnelling through moving kinematic platforms).
-  - LavaFlowRandomizer (per-object texture offset/speed), EmissionPulse (glow throb).
-  - Glass fix + dedupe WRITTEN as Implement Fix 049 / 050. Implement fixes now run to 050.
-NEXT STEP: In Unity, run Implement Fix 049 (ejection glass Render Face = Both) + 050 (dedupe
-  LavaFlowRandomizers) and confirm the ejection glass now renders.
+LAST LEFT OFF — 2026-06-25 (end of day)
+LAST ACTION: Fixed dash-on-bobbing-rock regression — DashModule now gates its horizontal override on
+  onSurface = IsGrounded || PlatformRiderModule.IsRiding (IsRiding survives the rock's ground-check
+  flicker), so the dash carries on a bobbing rock yet still releases to air control on a real dash-jump.
+  Committed + pushed all of the day's work on branch docs/design-architecture.
+
+CURRENT STATE (all implemented this session + logged in GameDesign.md / GameInfo.md):
+  - MovingPlatform: enable/disable-component-at-index (toggles a sibling at a waypoint), path smoothing
+    (ease in/out via decelerationPower; ramp ~Speed^2/(2*power)), start-index always spawns AT index x.
+  - RockBobber: ownership claim moved to OnEnable/OnDisable (no platform freeze when disabled per-waypoint);
+    on-enable smooth blend (enableLerpDuration, default 0.5s) instead of snapping into the bob.
+  - LedgeVaultModule (NEW): automatic mantle/vault over a near-miss ledge (gun clears, feet catch). Order 35.
+    Attach via Implement Fix 052. Pop auto-sized to clear the lip + vaultUpBonus feel.
+  - PlayerController air control: projection accel (no decel when already over MoveSpeed) — dash-jump keeps
+    forward momentum, sideways steers, back slows.
+  - DashModule: dash-jump keeps air control + bobbing-rock fix (IsRiding gate).
+  - Crush: PlayerMotor.ResolveOverlaps already provides push-out; no new code (decided platforms = guaranteed path).
+
+NEXT STEP: Playtest the full movement loop on the lava bridge — dash-jump off the bobbing rock, ledge vault,
+  platform path-smoothing feel. Tune LedgeVaultModule (maxVaultHeight / vaultUpBonus) and MovingPlatform
+  decelerationPower (~128 for Speed 32) to taste.
+
 PENDING MANUAL STEPS:
-  - Tools > Blast Frame > Implement Fix > 049 and 050 (not yet confirmed run).
-  - PC_Renderer.asset: restore the missing LavaDepthRendererFeature script OR remove the dead feature entry
-    (source of the recurring "PC_Renderer is missing RendererFeatures" console error). Left manual.
-  - Blender edge-split seams under light / baked-shadow lines: raise lightmap UV Pack Margin + resolution +
-    Stitch Seams, or move to weighted-normals + cage bake (welded mesh) and rebake.
-  - Set MovingPlatform Start Index per platform as desired.
+  - Tools > Blast Frame > Implement Fix > 052 - Add Ledge Vault Module To Player (if not yet run).
+  - On Lava Rock Platform 001: tick Path Smoothing + set Deceleration Power (~128) if you want easing.
+
 BLOCKERS / OPEN QUESTIONS:
-  - Is LavaDepthRendererFeature.cs lost (recreate it?) or should it be removed? Its script file is missing;
-    it is NOT what hid the glass (stock URP Lit renders in the normal transparent pass).
+  - Air-strafe speed gain is now possible (projection-accel side effect) — left in as platformer tech; revisit if unwanted.
+  - Ledge vault is automatic (no button) — confirm that feel, or gate it behind hold-jump.

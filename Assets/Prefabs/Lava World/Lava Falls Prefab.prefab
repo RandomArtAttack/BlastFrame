@@ -12,9 +12,6 @@ GameObject:
   - component: {fileID: 6574032172014110083}
   - component: {fileID: 8506347195107275209}
   - component: {fileID: 1334390266734211886}
-  - component: {fileID: 644656689629742963}
-  - component: {fileID: 3095704393038272612}
-  - component: {fileID: 1928677221252282549}
   - component: {fileID: 7387306582489762686}
   m_Layer: 31
   m_Name: Lava Falls
@@ -32,8 +29,8 @@ Transform:
   m_GameObject: {fileID: 2236547114073003829}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000021855694, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -53, z: -0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: -110.2, z: -0}
+  m_LocalScale: {x: 0.91, y: 0.91, z: 0.91}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 388824061809140902}
@@ -54,7 +51,7 @@ MeshRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2236547114073003829}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
@@ -117,54 +114,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 5340906720274772676, guid: fb6892bf5613a5648aeff1f8309ed7b5, type: 3}
---- !u!114 &644656689629742963
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2236547114073003829}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
---- !u!114 &3095704393038272612
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2236547114073003829}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
---- !u!114 &1928677221252282549
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2236547114073003829}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
 --- !u!114 &7387306582489762686
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -193,16 +142,13 @@ GameObject:
   - component: {fileID: 9095883459783277599}
   - component: {fileID: 3187606639116523257}
   - component: {fileID: 2784529410603657521}
-  - component: {fileID: 417710739872409321}
-  - component: {fileID: 8772894823498854663}
-  - component: {fileID: 3370990245017499390}
   - component: {fileID: 6790208636691186561}
   m_Layer: 31
   m_Name: LavaRipple
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
+  m_StaticEditorFlags: 2147483647
   m_IsActive: 1
 --- !u!4 &5007012928235119396
 Transform:
@@ -213,7 +159,7 @@ Transform:
   m_GameObject: {fileID: 4926075272014739022}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000021855694, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: -142, z: 0}
+  m_LocalPosition: {x: 0, y: -165.2, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -236,7 +182,7 @@ MeshRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4926075272014739022}
   m_Enabled: 1
-  m_CastShadows: 1
+  m_CastShadows: 0
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
@@ -261,7 +207,7 @@ MeshRenderer:
   m_ProbeAnchor: {fileID: 0}
   m_LightProbeVolumeOverride: {fileID: 0}
   m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
+  m_ReceiveGI: 2
   m_PreserveUVs: 0
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
@@ -299,54 +245,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: -7510971095682904295, guid: fb6892bf5613a5648aeff1f8309ed7b5, type: 3}
---- !u!114 &417710739872409321
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4926075272014739022}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
---- !u!114 &8772894823498854663
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4926075272014739022}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
---- !u!114 &3370990245017499390
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4926075272014739022}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c4536ec0ab88bb248901f3f25f8fbd6d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaFlowRandomizer
-  includeChildren: 0
-  randomizeOffset: 1
-  speedJitter: 0.15
-  seed: 0
 --- !u!114 &6790208636691186561
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -472,7 +370,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 757312102940896674, guid: 5e7aaa50872a33f43aa0462ee7ece020, type: 3}
       propertyPath: m_StaticEditorFlags
-      value: 0
+      value: 2147483647
       objectReference: {fileID: 0}
     - target: {fileID: 7342479473879847447, guid: 5e7aaa50872a33f43aa0462ee7ece020, type: 3}
       propertyPath: m_LocalPosition.x

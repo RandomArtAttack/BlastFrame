@@ -19,8 +19,14 @@ namespace BlastFrame.Gameplay.Player
         [Tooltip("Runtime registry the player registers itself into so enemies/turrets can target it.")]
         [SerializeField] private EntityRegistrySO entityRegistry;
 
+        [Tooltip("Transform whose yaw defines movement direction (the look yaw pivot). The render-rate " +
+                 "yaw lives here, NOT on the interpolated root Rigidbody, so horizontal look stays smooth. " +
+                 "Leave empty to fall back to this root (legacy: yaw applied directly to the body).")]
+        [SerializeField] private Transform orientation;
+
         private PlayerMotor _motor;
         private PlayerStats _stats;
+        private Transform _orientation; // resolved facing source: the yaw pivot, or the root as fallback
         private IPlayerInput _input;
         private readonly List<IMovementModule> _modules = new List<IMovementModule>();
         private Movement.PlatformRiderModule _rider;
@@ -32,6 +38,7 @@ namespace BlastFrame.Gameplay.Player
             _motor = GetComponent<PlayerMotor>();
             _stats = GetComponent<PlayerStats>();
             _rider = GetComponent<Movement.PlatformRiderModule>();
+            _orientation = orientation != null ? orientation : transform;
 
             GetComponents(_modules);
             _modules.Sort((a, b) => a.Order.CompareTo(b.Order));
@@ -48,7 +55,7 @@ namespace BlastFrame.Gameplay.Player
             float dt = Time.fixedDeltaTime;
 
             Vector2 moveInput = _input.Move;
-            Vector3 wishDir = transform.right * moveInput.x + transform.forward * moveInput.y;
+            Vector3 wishDir = _orientation.right * moveInput.x + _orientation.forward * moveInput.y;
             wishDir.y = 0f;
             if (wishDir.sqrMagnitude > 1f) wishDir.Normalize();
 
@@ -62,7 +69,7 @@ namespace BlastFrame.Gameplay.Player
                 WallNormal = _motor.WallNormal,
                 GroundNormal = _motor.GroundNormal,
                 DeltaTime = dt,
-                LookYaw = transform.rotation
+                LookYaw = _orientation.rotation
             };
 
             ApplyBaseLocomotion(ref state, dt);
@@ -89,8 +96,18 @@ namespace BlastFrame.Gameplay.Player
             }
             else if (state.WishDir.sqrMagnitude > 0.01f)
             {
-                // Air with input: steer toward the wished direction.
-                horiz = Vector3.MoveTowards(horiz, target, _stats.AirControl * dt);
+                // Air steering (projection accel): only ADD speed along the input direction up to MoveSpeed,
+                // never decelerate when already moving faster that way. So holding forward after a dash-jump
+                // keeps the dash momentum (no drag-down to MoveSpeed); pressing sideways adds lateral steering;
+                // pressing back (negative speed along input) adds reverse, slowing you. wishMag (0..1) lets an
+                // analog stick scale the target speed; the branch guarantees magnitude > 0.1 so the divide is safe.
+                float wishMag = state.WishDir.magnitude;
+                Vector3 wishDir = state.WishDir / wishMag;
+                float wishSpeed = wishMag * _stats.MoveSpeed;
+                float speedAlong = Vector3.Dot(horiz, wishDir);
+                float addSpeed = wishSpeed - speedAlong;
+                if (addSpeed > 0f)
+                    horiz += wishDir * Mathf.Min(_stats.AirControl * dt, addSpeed);
             }
             else
             {

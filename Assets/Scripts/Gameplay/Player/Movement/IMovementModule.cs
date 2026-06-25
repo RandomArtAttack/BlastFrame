@@ -38,6 +38,7 @@ namespace BlastFrame.Gameplay.Player.Movement
         public const int Dash = 10;          // overrides horizontal, suppresses gravity while active
         public const int Jump = 20;          // adds vertical; does NOT zero horizontal (dash-jump carry)
         public const int WallSlide = 30;     // clamps fall speed / wall jump
+        public const int LedgeVault = 35;    // auto-pop over a near-miss ledge (after the wall-slide clamp)
         public const int PlatformRider = 40; // adds inherited platform velocity last
     }
 }

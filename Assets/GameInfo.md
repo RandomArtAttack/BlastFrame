@@ -4,6 +4,31 @@ Entries are cumulative. Never remove. Amend if a pattern changes.
 
 ---
 
+## Player Movement — LedgeVaultModule (mantle assist)
+
+### LedgeVaultModule
+**Namespace:** `BlastFrame.Gameplay.Player.Movement`
+**File:** `Assets/Scripts/Gameplay/Player/Movement/LedgeVaultModule.cs`
+**Type:** MonoBehaviour `IMovementModule` on the Player root (Order = `MovementOrder.LedgeVault` = 35).
+**Purpose:** Small automatic hop over a "near-miss" ledge — the player is wall-sliding and steering into the wall, the gun (upper) clears the ledge but the feet catch it. Detection: upper forward ray (gun height) CLEAR + lower forward ray BLOCKED + a downward ray past the lip finds a walkable top within `maxVaultHeight` of the feet. Pop is computed to clear the measured lip (`sqrt(2·Gravity·(clearHeight+margin))`) plus `vaultUpBonus` (the "mini jump" feel), with `vaultForwardSpeed` nudging the player onto the surface. Probes use the motor's Rigidbody position; gravity is read from sibling `PlayerStats`.
+**Behaviour:** Automatic (no input button) — reads `WishDir` to require pushing into the wall. Runs AFTER WallSlide so it overrides that tick's slide clamp; yields to an explicit jump/wall-jump (skips if `JumpFired` already set). Sets `JumpFired` so PlatformRider releases any carry. Cooldown (`vaultCooldown`) prevents per-tick re-fire. Tall ledges (> `maxVaultHeight`) are ignored → player wall-jumps those.
+**Required components:** Player root must have `PlayerMotor` (Rigidbody + CapsuleCollider) and `PlayerStats` (all siblings, resolved via GetComponent).
+**Setup steps:**
+1. Run **Tools > Blast Frame > Implement Fix > 052 - Add Ledge Vault Module To Player** (adds the component in Core and sets `vaultMask` to exclude Player/Viewmodel).
+2. Tune on the component: `maxVaultHeight` (how tall a ledge auto-vaults), `vaultUpBonus` (the little pop), `vaultForwardSpeed`, `upperProbeHeight`/`lowerProbeHeight`/`probeDistance`, `pushIntoWallDot`.
+**Key fields:** `vaultMask`, `upperProbeHeight`, `lowerProbeHeight`, `probeDistance`, `maxVaultHeight`, `minVaultHeight`, `maxLedgeAngle`, `pushIntoWallDot`, `vaultClearMargin`, `vaultUpBonus`, `vaultForwardSpeed`, `vaultCooldown`.
+**Gotchas:**
+- **`vaultMask` must exclude Player and Viewmodel** or the gun/own capsule reads as a wall. Fix 052 sets this; if you add it by hand, clear those layers.
+- **The hop is auto-sized to clear the lip**, so `vaultUpBonus` is only the extra feel — it is NOT the whole jump. To stop tall ledges from auto-vaulting, lower `maxVaultHeight`, don't lower the bonus.
+- It only fires while wall-sliding and falling (`Velocity.y <= 0.1`), so a player still rising into a ledge clears (or doesn't) on their own momentum.
+
+## Platforms — MovingPlatform Path Smoothing (ease in/out)
+**File:** `Assets/Scripts/Gameplay/Platforms/MovingPlatform.cs`
+**Fields:** `pathSmoothing` (bool) + `decelerationPower` (FloatReference, m/s²). When on, the platform decelerates approaching each waypoint and accelerates after it, via `v = sqrt(2·power·distance)` against whichever segment end is nearer, floored at 0.1 m/s (always arrives) and capped at `Speed`. The eased speed feeds `CurrentVelocity`, so rider jump-momentum stays correct; works in all path modes and through the RockBobber external-drive path.
+**Gotcha:** ramp length ≈ `Speed² / (2·power)`. Fast platforms need a high power — e.g. Speed 32 wants `decelerationPower` ~128 (≈4 m ramp); at the default 8 it would crawl (~64 m ramp, longer than the segment). Slow platforms (~Speed 3) feel right at the default 8.
+
+---
+
 ## Environment — RockBobber (float on lava's visual surface)
 
 ### RockBobber
@@ -22,11 +47,12 @@ Entries are cumulative. Never remove. Amend if a pattern changes.
 4. Enable Read/Write on the lava meshes (**Implement Fix 046**) so `textureCoord` works.
 5. Tune `Height Offset` (negative = half-submerged), `Displacement Multiplier` (1 = exact surface), optional `Align To Surface`.
 6. Or use **Tools > Blast Frame > Hazards > Create Bobbing Rock** to spawn a placeholder cube already wired.
-**Key fields:** `lavaMask`, `rayStartHeight`/`rayMaxDistance` (lava search), `heightOffset`, `displacementMultiplier`, `followSpeed` (heft/lag), `alignToSurface`/`alignStrength`, `riverMaterial` (V.4 noise source), `noiseIsSRGB`.
+**Key fields:** `lavaMask`, `rayStartHeight`/`rayMaxDistance` (lava search), `heightOffset`, `displacementMultiplier`, `followSpeed` (heft/lag), `enableLerpDuration` (on-enable blend-in seconds), `alignToSurface`/`alignStrength`, `riverMaterial` (V.4 noise source), `noiseIsSRGB`.
 **Gotchas:**
 - **V.4 path needs Read/Write on BOTH the noise texture AND the lava mesh.** The bob reads the real mesh UV under the rock via `RaycastHit.textureCoord`, which only works on a Read/Write, non-convex MeshCollider; the noise sample needs the texture readable too. Run **Tools > Blast Frame > Implement Fix > 046** to enable Read/Write on the lava FBXs — Rebind logs a warning naming any mesh that isn't readable (it would otherwise return UV (0,0) and track the wrong point).
 - **`displacementMultiplier` = 1 now means EXACTLY the surface.** The old local-XZ UV guess undershot, so scene rocks were fudged up (2–5); with the real UV, set it back to 1 for a true match and lower only to make a heavy rock partly follow.
 - **sRGB noise is linearised on the CPU** to match the GPU's sampler in a linear-space project (`noiseIsSRGB`, on by default). If you set the noise texture's import to Linear, untick it.
+- **On-enable blend (`enableLerpDuration`, default 0.5s):** when the component is enabled — notably re-enabled mid-path by a MovingPlatform's enable-at-index — it smoothstep-blends from the body's current Y into the live bob over this many seconds instead of snapping, INDEPENDENT of `followSpeed`. Set 0 for the old instant snap. The blend's start Y is read from `_rb.position` (not `_prevY`, which is stale after being disabled while the platform moved the body).
 - **Heft / weight (`followSpeed`) — the tuning knob:** a plain serialized `FloatReference` on RockBobber. The rock EASES toward the surface via framerate-independent exponential smoothing (`blend = 1 - exp(-followSpeed * dt)`, no overshoot) rather than snapping. It's a SPEED/rate: higher = snappier/lighter, lower = slower/heavier; 0 = frozen, ~3 floaty, ~8 heavy (default), ~15 snappy, ~25 near-instant. Edit it in the Inspector (live in Play mode). The ride velocity handed to the player is the rock's ACTUAL eased motion (`(newY - prevY)/dt`), NOT the target, so the carry stays in sync. A heavy (low-speed) rock can briefly ride below a fast cresting wave — the lag IS the weight; raise `followSpeed` to hug the surface tighter.
 - **Ripple per-object phase** is a world-origin hash (fp `sin` of a large number); GPU vs CPU may differ slightly. If a rock floats a constant amount off the surface, set the lava material's **Phase Desync (`_RipplePhaseRandom`) to 0** for exact seating.
 - It re-binds only at Start. After moving the rock or changing the lava material in-editor, use the component's **Rebind To Lava Below** context-menu item.

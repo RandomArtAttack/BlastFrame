@@ -8,8 +8,11 @@ namespace BlastFrame.Gameplay.Player.Movement
 {
     /// <summary>
     /// Ground-initiated dash: a burst of horizontal speed in the input/look direction for
-    /// dashDuration, then a cooldown. Overrides only horizontal velocity, so a jump fired mid-dash
-    /// keeps the dash speed into the arc (dash-jump carry). Raises events for the cooldown ring UI.
+    /// dashDuration, then a cooldown. Overrides horizontal velocity ONLY while on a surface (grounded or
+    /// riding a platform), so a dash-jump preserves the dash speed into the arc (dash-jump carry) and then
+    /// steers/bleeds with normal air control instead of staying locked to the dash direction. Riding (not
+    /// raw grounded) is used so a bobbing rock's flickering ground check doesn't chop the dash short.
+    /// Raises events for the cooldown ring UI.
     /// </summary>
     public class DashModule : MonoBehaviour, IMovementModule
     {
@@ -23,6 +26,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private PlayerStats _stats;
         private IPlayerInput _input;
+        private PlatformRiderModule _rider; // sibling (optional) — its IsRiding survives bobbing-rock ground flicker
 
         private bool _dashQueued;
         private float _dashTimer;
@@ -36,7 +40,11 @@ namespace BlastFrame.Gameplay.Player.Movement
         public event Action<float> OnCooldownChanged;
         public event Action OnDashStarted;
 
-        private void Awake() => _stats = GetComponent<PlayerStats>();
+        private void Awake()
+        {
+            _stats = GetComponent<PlayerStats>();
+            _rider = GetComponent<PlatformRiderModule>();
+        }
 
         private void Start()
         {
@@ -64,7 +72,12 @@ namespace BlastFrame.Gameplay.Player.Movement
         {
             float dt = state.DeltaTime;
 
-            if (_dashQueued && IsReady && state.IsGrounded && !IsDashing)
+            // "On a surface" = truly grounded OR riding a platform. IsRiding rides through a bobbing rock's
+            // ground-check flicker (it has its own grace window) and only drops the tick you jump off — so the
+            // dash carries cleanly on a bobbing rock yet still releases to air control on a real dash-jump.
+            bool onSurface = state.IsGrounded || (_rider != null && _rider.IsRiding);
+
+            if (_dashQueued && IsReady && onSurface && !IsDashing)
             {
                 Vector3 dir = state.WishDir.sqrMagnitude > 0.01f
                     ? state.WishDir
@@ -80,9 +93,17 @@ namespace BlastFrame.Gameplay.Player.Movement
 
             if (IsDashing)
             {
-                Vector3 dash = _dashDir * _stats.DashSpeed;
-                state.Velocity.x = dash.x;
-                state.Velocity.z = dash.z;
+                // Hard-override horizontal ONLY while on a surface (grounded or riding). The instant a dash-jump
+                // (or dashing off a ledge) puts the player genuinely airborne, stop asserting dash velocity —
+                // the dash speed already in Velocity carries into the arc (momentum preserved) and normal air
+                // control takes over, so the player can steer mid-air. Using onSurface (not raw IsGrounded)
+                // means a bobbing rock's flickering ground check no longer chops the dash short.
+                if (onSurface)
+                {
+                    Vector3 dash = _dashDir * _stats.DashSpeed;
+                    state.Velocity.x = dash.x;
+                    state.Velocity.z = dash.z;
+                }
                 _dashTimer -= dt;
             }
 
