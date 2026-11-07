@@ -1,19 +1,15 @@
-LAST LEFT OFF — [2026-07-10]
-LAST ACTION: Developer reviewed the 2026-07-09 overnight batch (HANDOFF-005..008) and confirmed
-"things seem to be working great." Session closed.
-CURRENT STATE (tree GREEN, compiles clean, NOTHING committed — all in working tree):
-  - Bug review pass done (pool-leak fix in projectile Despawn; overlay under HUD; flyer repositioned).
-  - CameraFeel movement juice live on the Core player camera (dash FOV kick, landing dip, wall lean,
-    strafe roll — all FloatReference-tunable, defaults in GameInfo.md).
-  - Five pathfinding enemies live in Sandbox (Lobber, Skirmisher, Missiler, Biter, Bat) + baked
-    NavMesh + shootable HomingMissile + wizards under Tools/Blast Frame/Enemies/.
-  - Local split-screen 2P co-op WORKS (gamepad Start joins P2, hold Start 1s leaves; enemies target
-    nearest player). Online co-op code shipped inert behind #if BLASTFRAME_NGO — NGO package install
-    BLOCKED by UPM TLS cert failure on this machine.
-NEXT STEP: Commit the working tree (it's large: ~140 changed/new files, all reviewed-by-agent and
-verified live). Then either finish online co-op (install NGO on working-TLS network + BLASTFRAME_NGO
-define + Tools/Blast Frame/Multiplayer wizards) or move to the next feature.
-PENDING MANUAL STEPS: real-gamepad co-op smoke test; delete leftover FlyingEnemy (Hoverbot) in Core
-if unwanted; optional flyer z→26 in Area1LavaBridge; enemy/CameraFeel tuning to taste.
-BLOCKERS / OPEN QUESTIONS: NGO install blocked by UPM "unable to verify the first certificate"
-(environment TLS — retry on another network or fix cert chain/AV proxy).
+LAST LEFT OFF — [2026-11-07 12:40]
+LAST ACTION: Compute day — level-design reach tools, 79 EditMode tests, rules audit + bug fixes, SeedService /
+  VariantSetSO / AreaGraph / DESIGN §11 save shape. Built + tested headless in a git worktree (branch
+  work/compute-day), then fast-forwarded onto docs/design-architecture.
+CURRENT STATE: Tree green. Full suite 77/79 — the two non-passes are content state, not code: PlayerTestMode
+  multi-jump is ON in Core (Inconclusive), and Demo_VariantA/B/C have no prefab (Report test). New menus under
+  Tools/Blast Frame/Level Design and Tools/Blast Frame/Areas. GameInfo.md has the measured reach table. DESIGN.md
+  §14 checklist synced to the code.
+NEXT STEP: Decide the open design calls in GameDesign.md 2026-11-07 (dash-jump ~16 m vs 10 budget, coyote 0.1 vs 0.25,
+  dash cooldown 0.25 vs 5 s, arc turret lead), then wire SeedService + AreaGraph into RunManager (area select, runSeed,
+  RoomController.Initialize(seed), EndRun on player death).
+PENDING MANUAL STEPS: open Blast Frame (re-imports new scripts); Tools/Blast Frame/Level Design/Measure Player Reach
+  once; try Jump Reach Gizmo + Reachability Lint on Area1LavaBridge; bounce a springboard twice; enemy ArcExplosion
+  now renders at its authored (3x larger) size; assign prefabs to Demo_VariantA/B/C or delete them.
+BLOCKERS / OPEN QUESTIONS: design calls above; NGO install still blocked by UPM TLS (unchanged).

@@ -4,6 +4,106 @@ Entries are cumulative. Never remove. Amend if a pattern changes.
 
 ---
 
+## Level Design — reach measurement, jump gizmo, reachability lint (2026-11-07)
+
+All editor-only (`Assets/Editor/LevelDesign/`). Nothing here enters play mode.
+
+### Measure Player Reach — `Tools/Blast Frame/Level Design/Measure Player Reach (real motor)`
+- Copies the Core Player's movement components (PlayerStats, PlayerMotor, Jump/Dash/WallSlide/LedgeVault/
+  PlatformRider) onto a headless rig (`MotorSimRig`) and drives the REAL code with scripted input +
+  `Physics.Simulate`, inside a temporary empty scene (your scenes are saved-prompted and restored).
+- Binary-searches lip-to-lip gaps for StandingJump / RunJump / DashJump at Δheight −6…+3 m, "perfect" (any
+  frame works) and "comfortable" (≥100 ms timing window; standing = toes 0.25 m back), plus jump apex,
+  tallest ledge (jump + vault) and wall-jump chimney widths.
+- Result cached at `Library/BlastFrame/ReachProfile.json`, keyed by a hash of the player tuning. Tools say
+  "stale — re-measure" when the loaded Player's tuning differs.
+- Measured 2026-11-07 (Core tuning: jump 12, gravity 24, move 7, dash 14 × 1 s, coyote 0.1):
+  flat gaps — standing 7.73 / 7.00 comfy, run 8.88 / 8.25, dash-jump 16.86 / 15.73 m;
+  +3 m up — run 6.64, dash 12.38; apex 3.14 m; tallest ledge 4.03 m; chimneys 1.5–5 m climbable, 6 m not.
+- Gotcha: PlayerTestMode is deliberately NOT copied (multi-jump would make every gap reachable).
+
+### Jump Reach Gizmo — `Tools/Blast Frame/Level Design/Jump Reach Gizmo`
+- Ctrl+Shift+Click a surface in the Scene view to drop a takeoff point (faces the camera's look direction),
+  or "Takeoff = selected object". Drag the handle / disc to move and aim.
+- Draws the real motor's arcs per move kind, linecasts them against your geometry, marks the landing
+  (red "WALL HIT" if it lands on an unwalkable face), and optional flat-ground gap rings.
+
+### Reachability Lint — `Tools/Blast Frame/Level Design/Reachability Lint (open scene)`
+- Samples every standable surface (0.5 m grid, headroom-checked), groups walk-connected islands, links islands
+  with the measured jump/dash table, and colours surfaces by the HARDEST move needed from the start:
+  Walk / Jump / Perfect jump / Dash jump / Perfect dash / Unreachable (red); LavaHazardVolume surfaces orange.
+- Start = selected object (toggle) → Entry `RoomMarker` → largest island.
+- "Only analyse inside the selected object's bounds" skips skyboxes / backdrops (Area1LavaBridge: 5 s whole scene).
+- Gotchas: gaps are estimated from cell centres (optimistic by ≤ one cell) — hand-test anything near a limit.
+  Moving/riding platforms are analysed at their CURRENT pose only.
+
+### Room Variant Lint — `Tools/Blast Frame/Level Design/Lint Room Variants`
+- Every RoomController in open scenes has exactly 3 non-null variants; RoomVariantSO ids present + unique;
+  prefab assigned, has colliders, contains no Player / Camera / AudioListener / EventSystem; and (headless)
+  every Exit / Secret `RoomMarker` inside each variant prefab is reachable from its Entry marker.
+- 2026-11-07 result: Demo_VariantA/B/C have NO prefab assigned (only errors in the project).
+
+### RoomMarker (runtime, inert)
+- `Assets/Scripts/Gameplay/Rooms/RoomMarker.cs`. Kind: Entry / Exit / Secret / Checkpoint + optional label.
+- No runtime behaviour. Drop inside room variant prefabs so the lints know where the player arrives and what
+  must be reachable.
+
+---
+
+## Seeding — SeedService + VariantSetSO (DESIGN.md §6–7) (2026-11-07)
+
+### SeedService (`Assets/Scripts/Core/Seeding/SeedService.cs`)
+- `new SeedService(runSeed)`; `Roll(areaId, roomIndex, slotId)` / `Range(..., count)` / `Value01(...)`.
+- Stable hash (FNV-1a + SplitMix64) — NOT string.GetHashCode. `SeedService.NewRunSeed()` for a fresh run.
+- Golden values pinned in `InfrastructureTests.Seed_GoldenValues_NeverChange`: changing the hash changes every
+  saved/shared run's content — only do it on purpose with a save version bump.
+- NOT YET WIRED: nothing registers an ISeedService or calls `RoomController.Initialize(seed)` yet, so rooms
+  still use their `_fallbackSeed` (same variant every run). RunManager should create one per run and store
+  `runState.runSeed`.
+
+### VariantSetSO<T> / RoomVariantSetSO
+- Weighted seeded pick; weight 0 or empty item = never picked. `set.Pick(seeds, areaId, roomIndex, slotId)`.
+- Create: `Tools/Blast Frame/Rooms/Create Room Variant Set` (pre-fills with selected RoomVariantSOs) or
+  Create > Blast Frame > Rooms > Room Variant Set. One subclass per item type (Unity can't make open generics).
+
+---
+
+## Areas — AreaDefinitionSO + effect graph (DESIGN.md §8) (2026-11-07)
+
+- `AreaDefinitionSO`: id (permanent — saved), displayName, tier, startsUnlocked, sceneName, onComplete effects.
+- Effect vocabulary (`AreaEffectType`, serialized by value — append new kinds at the END only):
+  UnlockArea(target) · AlterSpawnTable(target, key) · OpenShortcut(target, key) ·
+  ApplyBossWeakness(target, key = weapon id, amount = multiplier, default 2) · PriceCut(amount = %, total clamped 90).
+- `AreaRegistrySO` (`Assets/ScriptableObjects/Areas/AreaRegistry.asset`) lists every area.
+- `AreaGraph.Derive(areas, completedAreaIds)` → per-area Unlocked / Completed / Alterations / Shortcuts /
+  BossWeaknesses / UnlockedBy + global PriceCutPercent. Pure, recomputed on area enter, never saved.
+- `AreaGraph.Validate` / `Tools/Blast Frame/Areas/Validate Area Graph`: duplicate/empty ids, unknown or self
+  targets, missing keys, no start area, areas no completion order can unlock.
+- `Tools/Blast Frame/Areas/Create Area Definition` creates + registers (first one starts unlocked).
+- NOT YET WIRED into RunManager/LevelController (those still use linear LevelDefinitionSO/level index).
+
+---
+
+## Save — DESIGN.md §11 shape (2026-11-07)
+
+- SaveData gained `completedAreaIds` (HashSet), `unlockedAbilityIds`; RunSaveData gained `runSeed`,
+  `currentAreaId`. Retired: `unlockedLevelIndex`, `currentLevelIndex` (nothing read them). Old saves still load.
+- Saves are write-then-swap (`.tmp` + File.Replace) — a crash mid-write keeps the previous save.
+- An unreadable save is copied to `blastframe.sav.unreadable-<timestamp>` before starting fresh (the next
+  pause/quit save would otherwise overwrite it).
+- `SaveManager.Encode/Decode` expose the exact on-disk codec for tests/tools.
+- CurrencyManager now mirrors the wallet into `metaCurrency` on every change.
+
+---
+
+## Tests (2026-11-07)
+
+- Index + headless command: `Assets/Editor/Tests/README.md`. All EditMode; ~75 tests; default gate
+  `-testCategory "!Report;!Slow"` ≈ 2 min including editor startup.
+- `ProjectDataTests.CorePlayer_TestModeIsOff` is INCONCLUSIVE (a warning) while PlayerTestMode multi-jump is on.
+
+---
+
 ## Camera — CameraFeel (movement juice)
 
 ### CameraFeel

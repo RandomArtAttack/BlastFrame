@@ -11,7 +11,17 @@
 
 ---
 
-## 0. Project Reality (2026-05-30)
+## 0. Project Reality (2026-11-07)
+
+- **No longer greenfield.** ~115 runtime scripts: movement (motor + jump/dash/wall/vault/rider modules), combat,
+  7 enemy types, platforms, rooms, HQ shop, bosses, save, audio, HUD, local co-op. See the synced checklist (§14).
+- **Verification:** ~75 EditMode tests (`Assets/Editor/Tests/README.md`), including movement driven through the
+  REAL motor headless (`Assets/Editor/LevelDesign/MotorSimRig`). Level-design tools: reach measurement, jump gizmo,
+  reachability + room-variant lint (GameInfo.md).
+- **Built but not wired (2026-11-07):** SeedService/VariantSetSO (§6–7) and AreaDefinitionSO/AreaGraph (§8) exist and
+  are tested; the run flow (RunManager/LevelController) is still the linear level-index version.
+
+## 0a. Project Reality (2026-05-30, superseded — kept for history)
 
 - **Greenfield.** Despite CLAUDE.md / LAST_LEFT_OFF.txt describing built movement/combat, **no game
   code exists** — `Assets/` holds only URP-template files, git is a single initial commit, and only
@@ -247,43 +257,53 @@ AES-encrypted JSON, IDs only, plain C# `SaveData` (resolve to SOs via registries
 
 ## 14. BUILD CHECKLIST (top-down, one at a time, each in a test scene)
 
+Status synced against the code on 2026-11-07 (`[x]` built · `[~]` partly built — note says what is missing ·
+`[ ]` not started). Tests that guard an item are named in `Assets/Editor/Tests/README.md`.
+
 ### Milestone A — Core Framework
-- [ ] ServiceLocator (interfaces, Start-time resolve, fail-loud).
-- [ ] GameEventSO + GameEventListener (+ typed `GameEventSO<T>`).
-- [ ] Variable SOs (Float/Int/Bool) + Reference structs + PropertyDrawers.
-- [ ] Generic `Pool<T>` + `PoolManagerSO` + `PoolConfigSO` + `IPoolable`.
-- [ ] EntityDefinitionSO + EntityRegistrar/EntityRegistrySO.
-- [ ] **SeedService** (deterministic Hash-based rolls) + `VariantSetSO`.
-- [ ] GameStateMachine + state events; SceneLoader + BootLoader + SceneNames (Core additive boot).
+- [x] ServiceLocator (interfaces, Start-time resolve, fail-loud).
+- [x] GameEventSO + GameEventListener (+ typed `GameEventSO<T>`).
+- [x] Variable SOs (Float/Int/Bool) + Reference structs + PropertyDrawers.
+- [x] Generic `Pool<T>` + `PoolConfigSO` + `IPoolable`. (Pool owner is a `PoolManager` MonoBehaviour service, not an SO.)
+- [x] EntityDefinitionSO + EntityRegistrar/EntityRegistrySO.
+- [~] **SeedService** (deterministic Hash-based rolls) + `VariantSetSO` — built 2026-11-07 (`Core/Seeding`, golden-value
+  tested) but NOT wired: no run creates a SeedService and nothing calls `RoomController.Initialize(seed)`.
+- [x] GameStateMachine + state events; SceneLoader + BootLoader + SceneNames (Core additive boot).
 
 ### Milestone B — Player (movement first — the thing you care about)
-- [ ] PlayerInputHandler (Move/Look/Jump press+release/Dash/Fire press+release/CycleWeapon/Interact).
-- [ ] Kinematic Rigidbody PlayerMotor (sweep/collide, grounded/wall state) + PlayerStats + PlayerHealth(5).
-- [ ] FirstPersonCamera (look, pitch clamp, cached ref, shake).
-- [ ] JumpModule (variable height, coyote, buffer, air control).
-- [ ] DashModule (ground-only, momentum carry, cooldown ring events).
-- [ ] WallSlideModule (slide + wall jump + dash-jump-off).
-- [ ] PlatformRiderModule + the 4 platform types.
-- [ ] **Prototype test scene to validate movement feel** (resolve the dash-distance open Q).
+- [~] PlayerInputHandler (Move/Look/Jump press+release/Dash/Fire press+release/Interact) — no CycleWeapon yet.
+- [x] Kinematic Rigidbody PlayerMotor (sweep/collide, grounded/wall state) + PlayerStats + PlayerHealth(5).
+- [x] FirstPersonCamera (look, pitch clamp, cached ref, shake).
+- [x] JumpModule (variable height, coyote, buffer, air control).
+- [x] DashModule (held-button per glossary, momentum carry, cooldown ring events).
+- [x] WallSlideModule (slide + wall jump + dash-jump-off) + LedgeVaultModule.
+- [x] PlatformRiderModule + the 4 platform types.
+- [x] **Prototype test scene to validate movement feel** (Sandbox, TestLevel, Area1LavaBridge). Dash-distance Q
+  answered by measurement 2026-11-07: dash jump clears ~16 m flat (glossary budget says 10 — see GameDesign.md).
 
 ### Milestone C — Combat
-- [ ] IDamageable; pooled PlayerProjectile; PlayerShooter + ChargeShot + AoeExplosion; ChargeBarUI.
+- [~] IDamageable; pooled PlayerProjectile; PlayerShooter + ChargeShot + AoeExplosion; ChargeBarUI —
+  ChargeShot is a CONTINUOUS 0..1 charge, not the discrete Lv0–Lv3 tiers §5 specifies.
 - [ ] Weapon system: cycle-all owned weapons (unlimited, trade-off-balanced types) + weapon HUD; AbilitySO equips.
-- [ ] EnemyCore + EnemyStats + behavior modules; MissileTurret + ArcPredictTurret; pooled enemy projectiles.
+- [x] EnemyCore + EnemyStats + behavior modules; MissileTurret + ArcPredictTurret; pooled enemy projectiles
+  (+ Lobber, Skirmisher, Missiler, Biter, Bat, Flyer, HomingMissile).
 
 ### Milestone D — Variability & Content
 - [ ] VariantProfileSO + apply-on-spawn (stat/behavior/scale/color/shield); enemy variant rolls.
-- [ ] RoomController + room slots + RoomVariantSO (variant prefabs: platforming / enemy-rush / hazard).
+- [x] RoomController + room slots + RoomVariantSO (+ RoomVariantSetSO weighted set, RoomMarker, room-variant lint).
 - [ ] Encounter/spawn rolls wired to SeedService.
-- [ ] Run powerups: PowerupSO (Minor/Major tiers), instant pickups + 1-of-3 Major draft UI.
+- [~] Run powerups: PowerupSO + registry + pickups exist; no Minor/Major tier field and no 1-of-3 draft UI.
 
 ### Milestone E — Areas, Meta, Bosses, Save
-- [ ] AreaDefinitionSO + onComplete typed effect vocabulary + effect-graph applier (on area enter).
-- [ ] RunManager (area select, difficulty, room progression, death→HQ); completion set tracking.
-- [ ] HQ: HQController, ShopManager, PermanentUpgradeSO/Registry, CurrencyWallet, run-start panel.
-- [ ] MiniBossCore + BossCore (phases) + boss drop (weapon/ability) + onComplete trigger.
-- [ ] SaveManager service (AES JSON, completedAreaIds, runSeed, weapon energy, unlocks) + save triggers.
+- [~] AreaDefinitionSO + onComplete typed effect vocabulary + effect-graph applier — built 2026-11-07
+  (`Gameplay/Areas`, `AreaGraph.Derive/Validate`, tested) but NOT wired into the run flow (still linear LevelDefinitionSO).
+- [~] RunManager — linear level index, not area select; `EndRun` has no callers (player death does not end the run yet).
+- [~] HQ: HQController, ShopManager, PermanentUpgradeSO/Registry, CurrencyManager/Wallet, ShopUI — run-start panel not verified.
+- [~] MiniBossCore + BossCore (phases) + boss drop + weapon-unlock event — onComplete effects not triggered (no area wiring).
+- [~] SaveManager service (AES JSON, §11 shape incl. completedAreaIds + runSeed, atomic write, unreadable-save backup) —
+  save triggers beyond pause/quit + shop purchase not wired. ("weapon energy" dropped: §5 has no energy/ammo.)
 
 ### Milestone F — Polish
-- [ ] AudioManager + AudioCueSO + mixer groups.
-- [ ] Full HUD, Pause, MainMenu, run-summary screen, hit feedback/i-frames, boss telegraphs.
+- [x] AudioManager + AudioCueSO + mixer groups.
+- [~] HUD: Health, DashCooldown, ChargeBar, damage indicators + overlay, i-frames. Missing: Pause, MainMenu,
+  run-summary screen, boss telegraphs.

@@ -4,6 +4,17 @@ Newer entries at the top. Never reorder or delete old entries.
 
 ---
 
+[2026-11-07] — MEASURED REACH vs THE GLOSSARY BUDGETS (no tuning changed)
+The real player motor was measured headless. With current Core tuning the standing long jump clears 7.73 m with perfect positioning and exactly 7.0 m with toes a quarter-metre back — matching the 7-unit layout budget. The dash jump clears about 16 m, far beyond the 10-unit budget in the glossary, and coyote time is 0.1 s (glossary says ~0.25) while the dash cooldown is 0.25 s (spec says 5 s). Nothing was retuned; the developer decides whether the glossary or the tuning is the truth. Layout budgets for designers should now come from the measured table (GameInfo.md), not the round numbers.
+
+[2026-11-07] — ARC TURRET: ACCURATE ON STILL TARGETS, ALMOST NEVER HITS A RUNNER
+Fuzzing the ArcPredict turret showed the aim math lands within 0.2 m of a still target, but high arcs hang in the air 2–6 s, so a player running in a straight line is essentially never hit (0–2% of shots land within the blast radius). The lead is only applied when the player runs AWAY from the turret (the "moving straight" check compares against the turret direction, not straightness), and lead time is capped at 1.5 s. Left as-is pending a design call: a dodgeable mortar may be exactly the intent ("readable"); if it should threaten, fix the straightness check and raise the lead cap.
+
+[2026-11-07] — AREA EFFECTS ARE A FIXED ENUM VOCABULARY, NOT POLYMORPHIC CLASSES
+The area weakness-web (DESIGN §8) is authored as a list of simple typed effects (Unlock / Alter spawn table / Open shortcut / Boss weakness / Price cut), each with a target area, a key and an amount. Chosen over per-effect classes because it is trivial to author in the Inspector, survives renames, and still reads as "typed". New effect kinds are appended to the end of the list. Area state is always re-derived from the completed-area set and never saved.
+
+---
+
 [2026-07-09] — MULTIPLAYER: LOCAL SPLIT-SCREEN 2P (SHIPPED) + ONLINE FOUNDATION (BLOCKED)
 Added two-player support in two tiers, single-player untouched when neither is active. (1) LOCAL CO-OP is fully working: the game was single-player in exactly three load-bearing places — one global input handler, a single-player registry, and a lone scene player — so all three were made N-player-aware with P1-compatible defaults. Input became per-player (each player owns an InputSystem_Actions paired to specific devices; P1 = keyboard+mouse, or all devices when solo so a solo gamepad still works; P2 = the joining gamepad). A gamepad Start press while in gameplay spawns P2 next to P1, splits the cameras horizontally (P1 top, P2 bottom, each keeping its URP viewmodel overlay), and pairs the pad; holding P2's Start leaves and restores full-screen P1. Verified live: P2 spawns, screen splits, gamepad moves ONLY P2 and keyboard moves ONLY P1, leave restores full screen — zero errors.
 Provisional co-op respawn rule (v1): a dead player respawns after 5s at the living player's position; if BOTH are dead, the normal death flow runs (unchanged). Open to change once real playtesting happens.
