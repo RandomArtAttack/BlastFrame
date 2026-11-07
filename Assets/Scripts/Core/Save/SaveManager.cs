@@ -62,12 +62,14 @@ namespace BlastFrame.Core.Save
         {
             try
             {
-                string json  = JsonConvert.SerializeObject(_data, Formatting.None);
-                byte[] plain = Encoding.UTF8.GetBytes(json);
-                byte[] cipher = Encrypt(plain);
+                byte[] cipher = Encode(_data);
 
+                // Write-then-swap: a crash or power loss mid-write leaves the previous save intact.
                 string path = SaveFilePath();
-                File.WriteAllBytes(path, cipher);
+                string tmp = path + ".tmp";
+                File.WriteAllBytes(tmp, cipher);
+                if (File.Exists(path)) File.Replace(tmp, path, null);
+                else File.Move(tmp, path);
                 Debug.Log($"[SaveManager] Saved to {path}");
             }
             catch (Exception ex)
@@ -93,18 +95,27 @@ namespace BlastFrame.Core.Save
 
             try
             {
-                byte[] cipher = File.ReadAllBytes(path);
-                byte[] plain  = Decrypt(cipher);
-                string json   = Encoding.UTF8.GetString(plain);
-                _data = JsonConvert.DeserializeObject<SaveData>(json) ?? new SaveData();
+                _data = Decode(File.ReadAllBytes(path));
                 Debug.Log($"[SaveManager] Loaded from {path}");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[SaveManager] Load failed ({ex.Message}) — starting fresh. Old file kept as-is.");
+                // The next Save() (pause / quit) would overwrite the unreadable file, so move it aside first.
+                string backup = path + ".unreadable-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                try { File.Copy(path, backup, true); }
+                catch (Exception copyEx) { Debug.LogError($"[SaveManager] Could not back up unreadable save: {copyEx.Message}"); }
+                Debug.LogWarning($"[SaveManager] Load failed ({ex.Message}) — starting fresh. Unreadable file backed up to {backup}");
                 _data = new SaveData();
             }
         }
+
+        /// <summary>SaveData → encrypted bytes (exactly what Save() writes). Public for tests/tools.</summary>
+        public static byte[] Encode(SaveData data) =>
+            Encrypt(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(data, Formatting.None)));
+
+        /// <summary>Encrypted bytes → SaveData (exactly what Load() reads). Throws on corrupt input.</summary>
+        public static SaveData Decode(byte[] cipher) =>
+            JsonConvert.DeserializeObject<SaveData>(Encoding.UTF8.GetString(Decrypt(cipher))) ?? new SaveData();
 
         // -----------------------------------------------------------------------------------------
         private static string SaveFilePath()
