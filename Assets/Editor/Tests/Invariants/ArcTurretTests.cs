@@ -63,7 +63,7 @@ namespace BlastFrame.Tests.Invariants
         {
             _turret = new GameObject("ArcTurret");
             _turret.AddComponent<EnemyCore>();
-            var stats = _turret.AddComponent<EnemyStats>();
+            var stats = _turret.GetComponent<EnemyStats>();
             _arc = _turret.AddComponent<EnemyBehaviorArcPredict>();
             var barrel = new GameObject("Barrel").transform;
             barrel.SetParent(_turret.transform, false);
@@ -77,7 +77,7 @@ namespace BlastFrame.Tests.Invariants
             so.FindProperty("barrelPivot").objectReferenceValue = barrel;
             so.ApplyModifiedPropertiesWithoutUndo();
             var sso = new SerializedObject(stats);
-            sso.FindProperty("projectileSpeed").FindPropertyRelative("ConstantValue").floatValue = 12f;
+            sso.FindProperty("projectileSpeed").FindPropertyRelative("ConstantValue").floatValue = 17f;
             sso.ApplyModifiedPropertiesWithoutUndo();
 
             Call(_turret.GetComponent<EnemyCore>(), "Awake");
@@ -120,7 +120,7 @@ namespace BlastFrame.Tests.Invariants
             Assert.IsNotNull(pool.Last, "turret did not fire");
             var proj = pool.Last.GetComponent<ArcProjectile>();
             var v = Get<Vector3>(proj, "_velocity");
-            Assert.AreEqual(12f, v.magnitude, 1e-3f, "launch speed must equal EnemyStats.ProjectileSpeed");
+            Assert.AreEqual(17f, v.magnitude, 1e-3f, "launch speed must equal EnemyStats.ProjectileSpeed");
             Assert.Less(Vector3.Angle(v, _muzzle.forward), 0.01f, "projectile must leave along the barrel");
             Assert.AreEqual(_muzzle.position, pool.Last.transform.position, "spawns at the muzzle");
             UnityEngine.Object.DestroyImmediate(pool.Last);

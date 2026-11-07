@@ -23,6 +23,7 @@ namespace BlastFrame.Core.Pooling
         private readonly int _expandIncrement;
         private readonly Stack<GameObject> _available = new Stack<GameObject>();
         private readonly HashSet<GameObject> _inPool = new HashSet<GameObject>();
+        private readonly Dictionary<GameObject, IPoolable[]> _hooks = new Dictionary<GameObject, IPoolable[]>();
 
         public Pool(GameObject prefab, Transform parent, string poolId, int prewarm, int expandIncrement)
         {
@@ -38,11 +39,12 @@ namespace BlastFrame.Core.Pooling
             for (int i = 0; i < count; i++)
             {
                 var instance = Object.Instantiate(_prefab, _parent);
-                var marker = instance.GetComponent<PooledMarker>() ?? instance.AddComponent<PooledMarker>();
+                if (!instance.TryGetComponent<PooledMarker>(out var marker)) marker = instance.AddComponent<PooledMarker>();
                 marker.PoolId = _poolId;
                 instance.SetActive(false);
                 _available.Push(instance);
                 _inPool.Add(instance);
+                _hooks[instance] = instance.GetComponentsInChildren<IPoolable>(true); // cached: no per-spawn array
             }
         }
 
@@ -59,7 +61,7 @@ namespace BlastFrame.Core.Pooling
             instance.transform.SetPositionAndRotation(position, rotation);
             instance.SetActive(true);
 
-            var poolables = instance.GetComponentsInChildren<IPoolable>(true);
+            var poolables = Hooks(instance);
             for (int i = 0; i < poolables.Length; i++) poolables[i].OnSpawn();
 
             return instance;
@@ -76,12 +78,19 @@ namespace BlastFrame.Core.Pooling
                 return;
             }
 
-            var poolables = instance.GetComponentsInChildren<IPoolable>(true);
+            var poolables = Hooks(instance);
             for (int i = 0; i < poolables.Length; i++) poolables[i].OnDespawn();
 
             instance.SetActive(false);
             instance.transform.SetParent(_parent, false);
             _available.Push(instance);
+        }
+
+        private IPoolable[] Hooks(GameObject instance)
+        {
+            if (!_hooks.TryGetValue(instance, out var hooks))
+                _hooks[instance] = hooks = instance.GetComponentsInChildren<IPoolable>(true);
+            return hooks;
         }
     }
 
