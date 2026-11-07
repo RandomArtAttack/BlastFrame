@@ -467,7 +467,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Player.Movement.LedgeVaultModule
   vaultMask:
     serializedVersion: 2
-    m_Bits: 2147485367
+    m_Bits: 2147483831
   upperProbeHeight: 1.6
   lowerProbeHeight: 0.4
   probeDistance: 0.7

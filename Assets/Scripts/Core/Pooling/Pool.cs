@@ -22,6 +22,7 @@ namespace BlastFrame.Core.Pooling
         private readonly string _poolId;
         private readonly int _expandIncrement;
         private readonly Stack<GameObject> _available = new Stack<GameObject>();
+        private readonly HashSet<GameObject> _inPool = new HashSet<GameObject>();
 
         public Pool(GameObject prefab, Transform parent, string poolId, int prewarm, int expandIncrement)
         {
@@ -41,6 +42,7 @@ namespace BlastFrame.Core.Pooling
                 marker.PoolId = _poolId;
                 instance.SetActive(false);
                 _available.Push(instance);
+                _inPool.Add(instance);
             }
         }
 
@@ -53,6 +55,7 @@ namespace BlastFrame.Core.Pooling
             }
 
             var instance = _available.Pop();
+            _inPool.Remove(instance);
             instance.transform.SetPositionAndRotation(position, rotation);
             instance.SetActive(true);
 
@@ -65,6 +68,13 @@ namespace BlastFrame.Core.Pooling
         public void Return(GameObject instance)
         {
             if (instance == null) return;
+            if (!_inPool.Add(instance))
+            {
+                // Already back in the pool (e.g. two hits despawned it in one tick). Pushing it again would
+                // hand the same object out twice.
+                Debug.LogWarning($"[Pool:{_poolId}] '{instance.name}' returned twice — ignored.");
+                return;
+            }
 
             var poolables = instance.GetComponentsInChildren<IPoolable>(true);
             for (int i = 0; i < poolables.Length; i++) poolables[i].OnDespawn();
