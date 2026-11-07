@@ -74,7 +74,7 @@ namespace BlastFrame.Gameplay.Player
         private void Awake()
         {
             _health = GetComponent<IDamageable>();
-            _lavaMask = lavaMask.value != 0 ? lavaMask.value : LayerMask.GetMask("Lava");
+            _lavaMask = lavaMask.value != 0 ? lavaMask.value : LayerMask.GetMask(BlastFrame.Core.LayerNames.Lava);
         }
 
         private void FixedUpdate()
@@ -87,8 +87,9 @@ namespace BlastFrame.Gameplay.Player
             {
                 _missTimer = 0f;
 
-                var renderer = hit.collider.GetComponentInParent<Renderer>()
-                               ?? hit.collider.GetComponentInChildren<Renderer>();
+                var renderer = hit.collider.GetComponentInParent<Renderer>();
+
+                if (renderer == null) renderer = hit.collider.GetComponentInChildren<Renderer>(); // explicit: ?? skips Unity's null check
                 if (renderer != _lastRenderer)
                 {
                     _lastRenderer = renderer;

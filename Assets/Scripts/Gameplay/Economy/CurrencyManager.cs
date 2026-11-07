@@ -79,6 +79,10 @@ namespace BlastFrame.Gameplay.Economy
 
         private void NotifyChanged()
         {
+            // Mirror into save data so earnings (kills, payouts) persist — SaveManager flushes on pause/quit
+            // and at the CLAUDE.md save points. Previously only ShopManager wrote metaCurrency.
+            if (ServiceLocator.TryGet<ISaveManager>(out var save) && save.Data != null)
+                save.Data.metaCurrency = _wallet.Balance;
             OnCurrencyChanged?.Invoke(_wallet.Balance);
             onCurrencyChangedEvent?.Raise(_wallet.Balance);
         }

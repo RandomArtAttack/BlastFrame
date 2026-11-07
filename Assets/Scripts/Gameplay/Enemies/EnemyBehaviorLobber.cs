@@ -145,8 +145,8 @@ namespace BlastFrame.Gameplay.Enemies
 
         private void CachePlayerCollider()
         {
-            if (_playerCollider != null || Player == null) return;
-            _playerCollider = Player.GetComponent<Collider>() ?? Player.GetComponentInChildren<Collider>();
+            if (Player == null) return;
+            _playerCollider = PlayerCollider; // base re-resolves when the nearest player changes
         }
 
         private void OnCoreDeath()

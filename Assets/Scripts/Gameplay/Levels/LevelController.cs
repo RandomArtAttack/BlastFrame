@@ -96,6 +96,7 @@ namespace BlastFrame.Gameplay.Levels
         private void HandleRoomCleared()
         {
             if (_levelDefinition == null) return;
+            if (_currentRoomIndex >= _levelDefinition.RoomCount) return; // level already complete — ignore late clears
 
             _onRoomCleared?.Raise();
 

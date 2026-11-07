@@ -34,6 +34,10 @@ namespace BlastFrame.Gameplay.Player
         [Tooltip("Seconds a buffered jump press persists before landing. ~0.1.")]
         [SerializeField] private FloatReference jumpBuffer = new FloatReference(0.1f);
 
+        [Tooltip("Fraction of upward speed kept when jump is released early while rising (variable jump height). " +
+                 "0.5 = half. Lower = shorter taps. ~0.5.")]
+        [SerializeField] private FloatReference jumpCutMultiplier = new FloatReference(0.5f);
+
         [Header("Dash")]
         [Tooltip("Dash speed in m/s.")]
         [SerializeField] private FloatReference dashSpeed = new FloatReference(15.4f);
@@ -61,6 +65,7 @@ namespace BlastFrame.Gameplay.Player
         public float JumpForce => jumpForce;
         public float CoyoteTime => coyoteTime;
         public float JumpBuffer => jumpBuffer;
+        public float JumpCutMultiplier => jumpCutMultiplier;
         public float DashSpeed => dashSpeed;
         public float DashDuration => dashDuration;
         public float DashCooldown => dashCooldown;

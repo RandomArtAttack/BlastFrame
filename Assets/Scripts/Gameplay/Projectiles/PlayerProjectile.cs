@@ -64,9 +64,10 @@ namespace BlastFrame.Gameplay.Projectiles
             damageable?.TakeDamage(new DamageInfo(_damage, transform.position, DamageKind.Projectile));
 
             // AoE explosion.
-            if (_aoe && Pool != null)
+            var pool = _aoe ? ResolvePool() : null; // lazy: a point-blank hit can land before Start ran
+            if (pool != null)
             {
-                var explosionGo = Pool.Spawn(PoolIds.Explosion, transform.position, Quaternion.identity);
+                var explosionGo = pool.Spawn(PoolIds.Explosion, transform.position, Quaternion.identity);
                 // AoeExplosion.OnSpawn() handles the radial damage — no further init needed.
             }
 

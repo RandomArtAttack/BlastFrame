@@ -85,7 +85,8 @@ namespace BlastFrame.Gameplay.Enemies
         {
             get
             {
-                if (_agent == null || !_agent.isOnNavMesh || _agent.pathPending) return false;
+                // A throttled destination not yet sent to the agent means we haven't arrived at IT.
+                if (_hasPending || _agent == null || !_agent.isOnNavMesh || _agent.pathPending) return false;
                 return _agent.remainingDistance <= _agent.stoppingDistance + arriveTolerance;
             }
         }

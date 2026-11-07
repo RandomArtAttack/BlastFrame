@@ -70,8 +70,15 @@ namespace BlastFrame.Gameplay.Weapons
             _despawned = true;
             // Resolve lazily: a point-blank spawn can impact in the same tick, before Start() runs — a
             // null Pool then would leak the instance (active forever, pool slot lost). TryGet never throws.
+            ResolvePool()?.Despawn(gameObject);
+        }
+
+        /// <summary>The pool manager, resolved lazily: a point-blank spawn can impact in the same tick, before
+        /// Start() ran — a null Pool then would leak the instance or skip its explosion. TryGet never throws.</summary>
+        protected IPoolManager ResolvePool()
+        {
             if (Pool == null && ServiceLocator.TryGet<IPoolManager>(out var p)) Pool = p;
-            Pool?.Despawn(gameObject);
+            return Pool;
         }
     }
 }

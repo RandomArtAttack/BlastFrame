@@ -118,8 +118,8 @@ namespace BlastFrame.Gameplay.Enemies
 
         private void CachePlayerDamageable()
         {
-            if (_playerDamageable != null || Player == null) return;
-            _playerDamageable = Player.GetComponent<IDamageable>() ?? Player.GetComponentInParent<IDamageable>();
+            if (Player == null) return;
+            _playerDamageable = PlayerDamageable; // base re-resolves when the nearest player changes
         }
 
         private void OnCoreDeath()

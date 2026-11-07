@@ -126,11 +126,7 @@ namespace BlastFrame.Gameplay.Enemies
             var player = Player;
             if (player == null) return false;
 
-            if (_playerCollider == null)
-            {
-                _playerCollider = player.GetComponent<Collider>();
-                if (_playerCollider == null) _playerCollider = player.GetComponentInChildren<Collider>();
-            }
+            _playerCollider = PlayerCollider; // base re-resolves when the nearest player changes
 
             var origin = transform.position;
             var b = _playerCollider != null

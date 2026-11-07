@@ -40,7 +40,7 @@ namespace BlastFrame.UI
         {
             if (entityRegistry == null || !entityRegistry.HasPlayer) return;
 
-            _chargeSource = entityRegistry.PlayerTransform.GetComponentInChildren<IChargeReadout>();
+            _chargeSource = entityRegistry.PlayerTransform.GetComponentInChildren<IChargeReadout>(true);
             if (_chargeSource == null)
             {
                 // No charge weapon yet — stay hidden.

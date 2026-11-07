@@ -14,6 +14,7 @@ namespace BlastFrame.Gameplay.Player.Movement
     /// raw grounded) is used so a bobbing rock's flickering ground check doesn't chop the dash short.
     /// Raises events for the cooldown ring UI.
     /// </summary>
+    [RequireComponent(typeof(PlayerStats))]
     public class DashModule : MonoBehaviour, IMovementModule
     {
         public int Order => MovementOrder.Dash;

@@ -10,6 +10,7 @@ namespace BlastFrame.Gameplay.Player.Movement
     /// while still rising cuts upward velocity for a short hop. Does NOT zero horizontal velocity
     /// (preserves dash-jump / platform momentum).
     /// </summary>
+    [RequireComponent(typeof(PlayerStats))]
     public class JumpModule : MonoBehaviour, IMovementModule
     {
         public int Order => MovementOrder.Jump;
@@ -65,7 +66,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
             if (_cutQueued)
             {
-                if (_rising && state.Velocity.y > 0f) state.Velocity.y *= 0.5f;
+                if (_rising && state.Velocity.y > 0f) state.Velocity.y *= _stats.JumpCutMultiplier;
                 _cutQueued = false;
             }
 

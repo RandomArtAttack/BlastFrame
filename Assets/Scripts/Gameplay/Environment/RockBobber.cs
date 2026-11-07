@@ -274,7 +274,7 @@ namespace BlastFrame.Gameplay.Environment
             _baseX = transform.position.x; // keep self-sufficient for the editor ContextMenu (pre-Start)
             _baseZ = transform.position.z;
 
-            _lavaMask = lavaMask.value != 0 ? lavaMask.value : LayerMask.GetMask("Lava");
+            _lavaMask = lavaMask.value != 0 ? lavaMask.value : LayerMask.GetMask(BlastFrame.Core.LayerNames.Lava);
             _rayLen = rayMaxDistance.Value + rayStartHeight.Value;
             Vector3 origin = transform.position + Vector3.up * rayStartHeight.Value;
             if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit,
@@ -285,8 +285,9 @@ namespace BlastFrame.Gameplay.Environment
                 return;
             }
 
-            var renderer = hit.collider.GetComponentInParent<Renderer>()
-                           ?? hit.collider.GetComponentInChildren<Renderer>();
+            var renderer = hit.collider.GetComponentInParent<Renderer>();
+
+            if (renderer == null) renderer = hit.collider.GetComponentInChildren<Renderer>(); // explicit: ?? skips Unity's null check
             _lava = renderer != null ? renderer.transform : null;
             if (_lava == null)
             {

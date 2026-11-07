@@ -31,7 +31,7 @@ namespace BlastFrame.Gameplay.HQ
         // ------------------------------------------------------------------
 
         [Tooltip("Meta-currency cost to purchase this upgrade. Use a constant or plug in an IntVariable asset.")]
-        [SerializeField] private IntReference cost;
+        [SerializeField] private IntReference cost = new IntReference(0);
 
         // ------------------------------------------------------------------
         // Effect
@@ -42,7 +42,7 @@ namespace BlastFrame.Gameplay.HQ
 
         [Tooltip("Magnitude of the effect — how much to add/multiply the target stat. " +
                  "Interpretation depends on PermanentUpgradeEffect. Use a constant or a FloatVariable asset.")]
-        [SerializeField] private FloatReference magnitude;
+        [SerializeField] private FloatReference magnitude = new FloatReference(0f);
 
         // ------------------------------------------------------------------
         // Public accessors (read-only — gameplay code never writes back to SOs)

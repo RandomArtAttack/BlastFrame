@@ -408,13 +408,9 @@ namespace BlastFrame.Gameplay.Enemies
 
         private void CachePlayerRefs(Transform player)
         {
-            if (_playerCollider == null)
-            {
-                _playerCollider = player.GetComponent<Collider>();
-                if (_playerCollider == null) _playerCollider = player.GetComponentInChildren<Collider>();
-            }
-            if (_playerCamera == null)
-                _playerCamera = player.GetComponentInChildren<Camera>(true); // never Camera.main
+            // Base re-resolves both when the nearest player changes (co-op: dodge the aim of the player we target).
+            _playerCollider = PlayerCollider;
+            _playerCamera = PlayerCamera;
         }
 
         private void OnCoreDeathHandler() => _dead = true;

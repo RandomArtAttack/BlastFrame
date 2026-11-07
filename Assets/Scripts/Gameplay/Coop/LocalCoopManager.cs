@@ -85,9 +85,9 @@ namespace BlastFrame.Gameplay.Coop
 
         private void OnDestroy()
         {
+            if (IsCoopActive) TearDownCoop(); // before disposing: teardown toggles the join/leave actions
             if (_joinAction != null) { _joinAction.performed -= OnJoinPerformed; _joinAction.Dispose(); }
             if (_leaveAction != null) { _leaveAction.performed -= OnLeavePerformed; _leaveAction.Dispose(); }
-            if (IsCoopActive) TearDownCoop();
             ServiceLocator.Unregister<ILocalCoopManager>(this);
         }
 

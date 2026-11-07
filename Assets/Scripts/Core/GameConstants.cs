@@ -41,4 +41,15 @@ namespace BlastFrame.Core
         public const string Fire = "Attack";
         public const string Interact = "Interact";
     }
+
+    /// <summary>Physics layer names (ProjectSettings/TagManager) — no magic strings for LayerMask lookups.</summary>
+    public static class LayerNames
+    {
+        public const string Player = "Player";
+        public const string Enemy = "Enemy";
+        public const string Viewmodel = "Viewmodel";
+        public const string PlayerWeapon = "PlayerWeapon";
+        public const string EnemyWeapon = "EnemyWeapon";
+        public const string Lava = "Lava";
+    }
 }

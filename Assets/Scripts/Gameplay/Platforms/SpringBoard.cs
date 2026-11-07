@@ -20,10 +20,17 @@ namespace BlastFrame.Gameplay.Platforms
 
         // True once consumed this contact; cleared when the rider leaves the trigger/collider.
         private bool _consumed;
+        private float _lastProbeTime = float.NegativeInfinity;
 
         // ILaunchPlatform — called by PlatformRiderModule each tick it probes this collider.
         public bool TryConsumeLaunch(out Vector3 launchVelocity)
         {
+            // Re-arm when the rider's probe skipped at least one physics tick: the contact ended. The exit
+            // callbacks below never fire for the kinematic player against a static board (no contact pair),
+            // which made every springboard single-use.
+            if (Time.fixedTime - _lastProbeTime > Time.fixedDeltaTime * 1.5f) _consumed = false;
+            _lastProbeTime = Time.fixedTime;
+
             if (_consumed)
             {
                 launchVelocity = Vector3.zero;

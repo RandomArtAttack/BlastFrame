@@ -18,6 +18,7 @@ namespace BlastFrame.Gameplay.Player.Movement
     /// jump/wall-jump (skips if JumpFired is already set this tick). No input wiring — it reads WishDir.
     /// Self-contained: only its own siblings (motor Rigidbody/CapsuleCollider, PlayerStats) and a mask.
     /// </summary>
+    [RequireComponent(typeof(Rigidbody), typeof(CapsuleCollider), typeof(PlayerStats))]
     public class LedgeVaultModule : MonoBehaviour, IMovementModule
     {
         public int Order => MovementOrder.LedgeVault;

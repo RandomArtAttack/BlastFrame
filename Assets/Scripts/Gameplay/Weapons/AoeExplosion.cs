@@ -34,10 +34,13 @@ namespace BlastFrame.Gameplay.Weapons
 
         // ----- MonoBehaviour lifecycle ---------------------------------------------------------
 
+        // Awake, not Start: the pool calls OnSpawn right after SetActive(true), BEFORE Start, so a scale
+        // captured in Start would read the already-overwritten value and lose the prefab's authored size.
+        private void Awake() => _baseScale = transform.localScale;
+
         private void Start()
         {
             _pool = ServiceLocator.Get<IPoolManager>();
-            _baseScale = transform.localScale;
         }
 
         private void Update()
@@ -47,7 +50,7 @@ namespace BlastFrame.Gameplay.Weapons
             _timer -= Time.deltaTime;
 
             // Shrink visual toward zero over its lifetime.
-            float t = Mathf.Clamp01(_timer / visualLifetime.Value);
+            float t = Mathf.Clamp01(_timer / Mathf.Max(0.0001f, visualLifetime.Value));
             transform.localScale = _baseScale * t;
 
             if (_timer <= 0f) Despawn();

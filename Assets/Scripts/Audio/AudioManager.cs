@@ -184,9 +184,12 @@ namespace BlastFrame.Audio
         {
             if (cue.Loop) return; // looping sources are not auto-returned; caller must stop them
 
-            var returner = source.gameObject.GetComponent<SourceReturner>();
-            if (returner == null) returner = source.gameObject.AddComponent<SourceReturner>();
+            // One persistent returner per source, toggled with `enabled`. (It used to Destroy itself, which is
+            // deferred: a source re-rented in the same frame got Init on the dying returner and never came back.)
+            if (!source.TryGetComponent<SourceReturner>(out var returner))
+                returner = source.gameObject.AddComponent<SourceReturner>();
             returner.Init(source, _sfxPool);
+            returner.enabled = true;
         }
 
         private static bool ValidateCue(AudioCueSO cue)
@@ -265,7 +268,7 @@ namespace BlastFrame.Audio
                     _source.transform.localPosition = Vector3.zero;
                     _pool.Enqueue(_source);
                 }
-                Destroy(this);
+                enabled = false;
             }
         }
     }

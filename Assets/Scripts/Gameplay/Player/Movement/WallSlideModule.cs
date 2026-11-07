@@ -11,6 +11,7 @@ namespace BlastFrame.Gameplay.Player.Movement
     /// launch but with dash-speed horizontal momentum (a stronger kick). Independent of JumpModule
     /// and DashModule (only acts when on a wall and airborne, where those modules do nothing).
     /// </summary>
+    [RequireComponent(typeof(PlayerStats))]
     public class WallSlideModule : MonoBehaviour, IMovementModule
     {
         public int Order => MovementOrder.WallSlide;

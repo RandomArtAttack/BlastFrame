@@ -172,8 +172,8 @@ namespace BlastFrame.Gameplay.Enemies
 
         private bool HasLineOfSightToPlayer(Vector3 pos)
         {
-            if (_playerCollider == null && Player != null)
-                _playerCollider = Player.GetComponent<Collider>() ?? Player.GetComponentInChildren<Collider>();
+            if (Player != null)
+                _playerCollider = PlayerCollider; // base re-resolves when the nearest player changes
             return EnemyLineOfSight.HasLineOfSight(transform, pos, Player, _playerCollider);
         }
 
