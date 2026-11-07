@@ -123,11 +123,9 @@ namespace BlastFrame.Gameplay.Environment
         private float _baseNX, _basePX, _baseNZ, _basePZ; // neighbour undisplaced heights
         private bool _alignSampled;         // all four tilt neighbours hit the lava
 
-        // V.4 noise params (mirror of RAA_LavaFlow_V4 CBUFFER), read from the river material.
-        private Texture2D _noiseTex;
-        private Vector2 _noiseScale, _noiseOffset, _noiseMove;
-        private float _turbulenceStrength;
-        private bool _linearizeNoise;       // match the GPU's sRGB->linear sample in a linear project
+        // V.4 noise params (mirror of RAA_LavaFlow_V4 CBUFFER), read from the river material via the
+        // shared LavaV4Sampler (single source of truth with LavaSubmersionDetector).
+        private LavaV4Sampler.V4Params _v4;
 
         private const float AlignEpsilon = 0.25f; // world-space half-step for the tilt slope
         private const float TeleportJumpSqr = 4f;  // (2m)^2 XZ jump in one tick = a path warp, not travel
@@ -208,7 +206,7 @@ namespace BlastFrame.Gameplay.Environment
 
             // TARGET = the REAL surface: undisplaced height + the GPU's own vertex displacement sampled at
             // the actual mesh UV under the rock. Object-space disp -> world via the lava's Y scale.
-            float disp = SampleNoiseDisp(_uvC, t) * displacementMultiplier.Value;
+            float disp = LavaV4Sampler.SampleDisp(in _v4, _uvC, t) * displacementMultiplier.Value;
             float targetY = _surfaceBaseY + disp * _lava.lossyScale.y + heightOffset.Value;
 
             // A large XZ jump in one tick = a path TELEPORT (MovingPlatform ReuseLoopTeleport warp). Snap to
@@ -328,45 +326,18 @@ namespace BlastFrame.Gameplay.Environment
             if (_externalMover == null) ResampleTiltNeighbours(_baseX, _baseZ);
         }
 
-        /// <summary>Reads the V.4 turbulence params from the river material. Returns false (rock holds)
-        /// if the material isn't a V.4 river, has no strength, or its noise isn't CPU-readable.</summary>
+        /// <summary>Reads the V.4 turbulence params from the river material via LavaV4Sampler. Returns
+        /// false (rock holds) if the material isn't a V.4 river, has no strength, or its noise isn't
+        /// CPU-readable. Behaviour-identical to the former inline CacheV4: on failure it re-emits the same
+        /// "not Read/Write Enabled" warning the sampler no longer logs.</summary>
         private bool CacheV4(Material m)
         {
-            if (m == null || !m.HasProperty("_NoiseMap") || !m.HasProperty("_TurbulenceStrength"))
-                return false; // not a V.4 river material
+            if (LavaV4Sampler.TryCache(m, noiseIsSRGB, out _v4)) return true;
 
-            _noiseTex = m.GetTexture("_NoiseMap") as Texture2D;
-            _noiseScale = m.GetTextureScale("_NoiseMap");
-            _noiseOffset = m.GetTextureOffset("_NoiseMap");
-            Vector4 move = m.HasProperty("_NoiseMove") ? m.GetVector("_NoiseMove") : Vector4.zero;
-            _noiseMove = new Vector2(move.x, move.y);
-            _turbulenceStrength = m.GetFloat("_TurbulenceStrength");
-
-            bool readable = _noiseTex != null && _noiseTex.isReadable;
-            if (_noiseTex != null && !readable)
-                Debug.LogWarning($"[RockBobber] '{_noiseTex.name}' (lava noise) is not Read/Write Enabled — " +
+            if (_v4.NoiseTex != null && !_v4.NoiseTex.isReadable)
+                Debug.LogWarning($"[RockBobber] '{_v4.NoiseTex.name}' (lava noise) is not Read/Write Enabled — " +
                     "can't sample it on the CPU. Enable it in the texture import settings.", this);
-
-            // The GPU sampler converts an sRGB-imported texture to linear in a linear-space project;
-            // mirror that on the CPU (GetPixelBilinear returns the raw gamma value) so heights match.
-            _linearizeNoise = noiseIsSRGB && QualitySettings.activeColorSpace == ColorSpace.Linear;
-
-            // Need a readable noise texture and a non-zero strength to mirror the turbulence.
-            return readable && Mathf.Abs(_turbulenceStrength) > Mathf.Epsilon;
-        }
-
-        // ----- Displacement sampler (CPU mirror of RAA_LavaFlow_V4 vert) -----------------------
-
-        /// <summary>Object-space vertical displacement the GPU applies at a given mesh UV: the scrolling
-        /// noise sample * strength. noiseUV mirrors TRANSFORM_TEX(uv,_NoiseMap) + _NoiseMove * _Time.y
-        /// (URP's _Time.y == Time.timeSinceLevelLoad). sRGB noise is linearised to match the GPU.</summary>
-        private float SampleNoiseDisp(Vector2 meshUV, float t)
-        {
-            float u = meshUV.x * _noiseScale.x + _noiseOffset.x + _noiseMove.x * t;
-            float v = meshUV.y * _noiseScale.y + _noiseOffset.y + _noiseMove.y * t;
-            float n = _noiseTex.GetPixelBilinear(u, v).r; // wrap mode handled by the texture
-            if (_linearizeNoise) n = Mathf.GammaToLinearSpace(n);
-            return n * _turbulenceStrength;
+            return false;
         }
 
         // ----- Helpers -------------------------------------------------------------------------
@@ -443,10 +414,10 @@ namespace BlastFrame.Gameplay.Environment
             if (!_alignSampled) return;
             float sy = _lava.lossyScale.y;
             float m = displacementMultiplier.Value;
-            float hNX = _baseNX + SampleNoiseDisp(_uvNX, t) * m * sy;
-            float hPX = _basePX + SampleNoiseDisp(_uvPX, t) * m * sy;
-            float hNZ = _baseNZ + SampleNoiseDisp(_uvNZ, t) * m * sy;
-            float hPZ = _basePZ + SampleNoiseDisp(_uvPZ, t) * m * sy;
+            float hNX = _baseNX + LavaV4Sampler.SampleDisp(in _v4, _uvNX, t) * m * sy;
+            float hPX = _basePX + LavaV4Sampler.SampleDisp(in _v4, _uvPX, t) * m * sy;
+            float hNZ = _baseNZ + LavaV4Sampler.SampleDisp(in _v4, _uvNZ, t) * m * sy;
+            float hPZ = _basePZ + LavaV4Sampler.SampleDisp(in _v4, _uvPZ, t) * m * sy;
             Vector3 n = new Vector3(hNX - hPX, 2f * AlignEpsilon, hNZ - hPZ).normalized;
             Quaternion target = Quaternion.FromToRotation(Vector3.up, n) * Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
             _rb.MoveRotation(Quaternion.Slerp(transform.rotation, target, Mathf.Clamp01(alignStrength.Value)));

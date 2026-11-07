@@ -67,7 +67,7 @@ namespace BlastFrame.Gameplay.Weapons
             {
                 var damageable = _overlapBuffer[i].GetComponentInParent<IDamageable>();
                 if (damageable != null && !damageable.IsDead)
-                    damageable.TakeDamage(damage.Value);
+                    damageable.TakeDamage(new DamageInfo(damage.Value, transform.position, DamageKind.Explosion));
             }
         }
 

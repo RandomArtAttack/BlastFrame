@@ -1,10 +1,13 @@
 {
   "mcpServers": {
-    "mcp-unity": {
-      "command": "node",
+    "raa-unity": {
+      "command": "C:/Program Files/nodejs/node.exe",
       "args": [
-        "Library/PackageCache/com.gamelovers.mcp-unity@cce8b57de9cb/Server~/build/index.js"
-      ]
+        "D:/Projects and Work/Claude Projects/Random Projects/Unity/unity-mcp/server/dist/index.js"
+      ],
+      "env": {
+        "UNITY_PROJECT_PATH": "D:/Projects and Work/Unity/RAA Game Repository/Blast Frame"
+      }
     }
   }
 }

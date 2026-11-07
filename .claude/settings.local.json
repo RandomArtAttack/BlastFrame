@@ -5,11 +5,11 @@
       "Bash(find Assets -iname \"*player*\")",
       "Bash(git pull *)",
       "Bash(git merge *)",
-      "mcp__mcp-unity__get_material_info",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "mcp__raa-unity__unity_get_editor_state"
     ]
   },
   "enabledMcpjsonServers": [
-    "mcp-unity"
+    "raa-unity"
   ]
 }

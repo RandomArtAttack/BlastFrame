@@ -1,0 +1,18 @@
+{
+  "name": "com.raa.blendermode",
+  "displayName": "Blender Mode",
+  "version": "0.1.0",
+  "unity": "6000.0",
+  "description": "Editor-only addon that makes the Unity Scene view behave like Blender: modal transforms, Blender navigation, numpad views, snapping, 3D cursor, pie menus and productivity extras. Personal use.",
+  "author": {
+    "name": "RAA"
+  },
+  "keywords": [
+    "editor",
+    "blender",
+    "navigation",
+    "sceneview",
+    "productivity"
+  ],
+  "hideInEditor": false
+}

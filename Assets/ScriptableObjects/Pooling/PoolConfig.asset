@@ -28,3 +28,9 @@ MonoBehaviour:
   - definition: {fileID: 11400000, guid: 28cc7283c03b27845963ab5c032aa9f9, type: 2}
     prewarmCount: 4
     expandIncrement: 2
+  - definition: {fileID: 11400000, guid: 1181724e1ef54094886d560c2466bdb9, type: 2}
+    prewarmCount: 8
+    expandIncrement: 8
+  - definition: {fileID: 11400000, guid: e24f3c8c17566124897790230938da86, type: 2}
+    prewarmCount: 8
+    expandIncrement: 8

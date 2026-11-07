@@ -50,6 +50,10 @@ namespace BlastFrame.Gameplay.Projectiles
         {
             if (_hit) return;
 
+            // Ignore non-damageable trigger volumes (lava hazard zones, secret triggers, etc.) — they
+            // aren't solid and must not consume/despawn the shot.
+            if (other.isTrigger && other.GetComponentInParent<IDamageable>() == null) return;
+
             // Skip other player projectiles.
             if (other.TryGetComponent<PlayerProjectile>(out _)) return;
 
@@ -57,7 +61,7 @@ namespace BlastFrame.Gameplay.Projectiles
 
             // Damage the first IDamageable on the collider or any of its parents.
             var damageable = other.GetComponentInParent<IDamageable>();
-            damageable?.TakeDamage(_damage);
+            damageable?.TakeDamage(new DamageInfo(_damage, transform.position, DamageKind.Projectile));
 
             // AoE explosion.
             if (_aoe && Pool != null)

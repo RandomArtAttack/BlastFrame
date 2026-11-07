@@ -3862,5 +3862,235 @@ namespace BlastFrame.EditorTools
             Debug.Log("[Fix052] LedgeVaultModule added to Player; vaultMask set to exclude Player/Viewmodel. " +
                       "Tune Max Vault Height / Vault Up Bonus on the component for feel.");
         }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/053 - Add LavaSubmersionDetector to Player + exclude Lava from PlayerMotor collision mask")]
+        private static void Fix053()
+        {
+            // Operates on the CURRENTLY OPEN scene containing the Player (Core, usually), not a forced
+            // scene load — the manual step says "run in the scene with the Player". Editor-only code may
+            // FindFirstObjectByType (banned only at runtime); locate the Player by its PlayerController.
+            var controller = Object.FindFirstObjectByType<PlayerController>();
+            if (controller == null)
+            {
+                EditorUtility.DisplayDialog("Implement Fix 053",
+                    "No Player (PlayerController) found in the open scene(s). Open the scene that contains " +
+                    "the Player (e.g. Core) and re-run.", "OK");
+                return;
+            }
+
+            var go = controller.gameObject;
+
+            // Add the submersion detector if it isn't already there.
+            if (!go.TryGetComponent<LavaSubmersionDetector>(out var detector))
+                detector = go.AddComponent<LavaSubmersionDetector>();
+
+            int lavaLayer = LayerMask.NameToLayer("Lava");
+            if (lavaLayer < 0)
+                Debug.LogWarning("[Fix053] No 'Lava' layer exists — the detector will find nothing and the " +
+                                 "motor mask is left unchanged. Create a 'Lava' layer (see Fix 045-era layer setup).");
+
+            // Point the detector's lavaMask at the Lava layer (it also falls back to it by name).
+            if (lavaLayer >= 0)
+            {
+                var dso = new SerializedObject(detector);
+                var dMask = dso.FindProperty("lavaMask");
+                if (dMask != null) { dMask.intValue = 1 << lavaLayer; dso.ApplyModifiedPropertiesWithoutUndo(); }
+            }
+
+            // Clear the Lava bit from PlayerMotor.collisionMask so the player FALLS THROUGH the river
+            // surface (rocks/projectiles are unaffected — they use the Lava layer explicitly / the matrix).
+            if (go.TryGetComponent<PlayerMotor>(out var motor) && lavaLayer >= 0)
+            {
+                var mso = new SerializedObject(motor);
+                var mMask = mso.FindProperty("collisionMask");
+                if (mMask != null)
+                {
+                    mMask.intValue &= ~(1 << lavaLayer);
+                    mso.ApplyModifiedPropertiesWithoutUndo();
+                }
+                else
+                {
+                    Debug.LogWarning("[Fix053] PlayerMotor has no 'collisionMask' field — recompile scripts, then re-run.");
+                }
+            }
+            else if (lavaLayer >= 0)
+            {
+                Debug.LogWarning("[Fix053] Player has no PlayerMotor — couldn't clear the Lava collision bit.");
+            }
+
+            EditorSceneManager.MarkSceneDirty(go.scene);
+            EditorSceneManager.SaveScene(go.scene);
+            Selection.activeObject = go;
+            EditorGUIUtility.PingObject(go);
+            Debug.Log("[Fix053] LavaSubmersionDetector added to Player; Lava layer removed from PlayerMotor " +
+                      "collisionMask (player now sinks through the river surface).");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/054 - Add DamageOverlayUI to the HUD canvas")]
+        private static void Fix054()
+        {
+            var hud = Object.FindFirstObjectByType<BlastFrame.UI.HUDController>();
+            if (hud == null)
+            {
+                EditorUtility.DisplayDialog("Implement Fix 054",
+                    "No HUDController found in the open scene(s). Open the scene with the HUD (e.g. Core) and re-run.", "OK");
+                return;
+            }
+
+            var canvas = hud.GetComponentInParent<Canvas>();
+            if (canvas == null) canvas = hud.GetComponentInChildren<Canvas>();
+            if (canvas == null)
+            {
+                EditorUtility.DisplayDialog("Implement Fix 054",
+                    "HUDController has no Canvas in its hierarchy — can't place the overlay.", "OK");
+                return;
+            }
+
+            if (canvas.transform.Find("DamageOverlay") is Transform existing)
+            {
+                Debug.LogWarning("[Fix054] 'DamageOverlay' already exists under the HUD canvas — aborting to avoid duplicates.");
+                Selection.activeObject = existing.gameObject;
+                EditorGUIUtility.PingObject(existing.gameObject);
+                return;
+            }
+
+            // Full-screen stretched Image, transparent + non-raycast, LAST sibling so it renders on top.
+            var go = new GameObject("DamageOverlay", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            go.layer = canvas.gameObject.layer;
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(canvas.transform, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.SetAsLastSibling();
+
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            img.color = new Color(1f, 0.35f, 0f, 0f);
+            img.raycastTarget = false;
+            img.enabled = false;
+
+            var overlay = go.AddComponent<BlastFrame.UI.DamageOverlayUI>();
+
+            var so = new SerializedObject(overlay);
+            var imgProp = so.FindProperty("overlayImage");
+            if (imgProp != null) imgProp.objectReferenceValue = img;
+            var regProp = so.FindProperty("entityRegistry");
+            var reg = AssetDatabase.LoadAssetAtPath<EntityRegistrySO>(
+                "Assets/ScriptableObjects/Entities/EntityRegistry.asset");
+            if (regProp != null && reg != null) regProp.objectReferenceValue = reg;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            if (reg == null)
+                Debug.LogWarning("[Fix054] EntityRegistry.asset not found at the canonical path — assign the " +
+                                 "DamageOverlayUI's Entity Registry field manually, or it won't bind.");
+
+            EditorSceneManager.MarkSceneDirty(go.scene);
+            EditorSceneManager.SaveScene(go.scene);
+            Selection.activeObject = go;
+            EditorGUIUtility.PingObject(go);
+            Debug.Log("[Fix054] Added DamageOverlay (full-screen Image + DamageOverlayUI, last sibling) under the HUD canvas.");
+        }
+
+        // ----------------------------------------------------------------------------------------
+        [MenuItem("Tools/Blast Frame/Implement Fix/055 - Add DamageIndicatorUI to the HUD canvas")]
+        private static void Fix055()
+        {
+            var hud = Object.FindFirstObjectByType<BlastFrame.UI.HUDController>();
+            if (hud == null)
+            {
+                EditorUtility.DisplayDialog("Implement Fix 055",
+                    "No HUDController found in the open scene(s). Open the scene with the HUD (e.g. Core) and re-run.", "OK");
+                return;
+            }
+
+            var canvas = hud.GetComponentInParent<Canvas>();
+            if (canvas == null) canvas = hud.GetComponentInChildren<Canvas>();
+            if (canvas == null)
+            {
+                EditorUtility.DisplayDialog("Implement Fix 055",
+                    "HUDController has no Canvas in its hierarchy — can't place the indicators.", "OK");
+                return;
+            }
+
+            // ---- 1. Ensure the indicator prefab asset exists ---------------------------------------
+            const string prefabPath = "Assets/Prefabs/UI/DamageIndicator.prefab";
+            var indicatorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            if (indicatorPrefab == null)
+            {
+                if (!AssetDatabase.IsValidFolder("Assets/Prefabs/UI"))
+                {
+                    if (!AssetDatabase.IsValidFolder("Assets/Prefabs"))
+                        AssetDatabase.CreateFolder("Assets", "Prefabs");
+                    AssetDatabase.CreateFolder("Assets/Prefabs", "UI");
+                }
+
+                // Prefer a built-in arrow sprite; fall back to the Knob if it can't be resolved.
+                var sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Arrow.psd");
+                if (sprite == null)
+                    sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+
+                var temp = new GameObject("DamageIndicator", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+                var trt = temp.GetComponent<RectTransform>();
+                trt.sizeDelta = new Vector2(24f, 48f); // arrow authored pointing UP
+                trt.anchorMin = new Vector2(0.5f, 0.5f);
+                trt.anchorMax = new Vector2(0.5f, 0.5f);
+                trt.pivot = new Vector2(0.5f, 0.5f);
+
+                var timg = temp.GetComponent<UnityEngine.UI.Image>();
+                timg.sprite = sprite;
+                timg.color = new Color(1f, 0.25f, 0.1f, 1f);
+                timg.raycastTarget = false;
+
+                indicatorPrefab = PrefabUtility.SaveAsPrefabAsset(temp, prefabPath);
+                Object.DestroyImmediate(temp);
+                Debug.Log($"[Fix055] Created indicator prefab at {prefabPath} " +
+                          (sprite != null ? $"(sprite '{sprite.name}')." : "(no built-in sprite resolved — solid quad)."));
+            }
+
+            // ---- 2. Create the DamageIndicators container under the canvas -------------------------
+            if (canvas.transform.Find("DamageIndicators") is Transform existing)
+            {
+                Debug.LogWarning("[Fix055] 'DamageIndicators' already exists under the HUD canvas — aborting to avoid duplicates.");
+                Selection.activeObject = existing.gameObject;
+                EditorGUIUtility.PingObject(existing.gameObject);
+                return;
+            }
+
+            var go = new GameObject("DamageIndicators", typeof(RectTransform));
+            go.layer = canvas.gameObject.layer;
+            var rt = go.GetComponent<RectTransform>();
+            rt.SetParent(canvas.transform, false);
+            rt.anchorMin = new Vector2(0.5f, 0.5f);
+            rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = Vector2.zero;
+            rt.SetAsLastSibling(); // render on top of the rest of the HUD
+
+            var indicators = go.AddComponent<BlastFrame.UI.DamageIndicatorUI>();
+
+            var so = new SerializedObject(indicators);
+            var prefabProp = so.FindProperty("indicatorPrefab");
+            if (prefabProp != null) prefabProp.objectReferenceValue = indicatorPrefab;
+            var regProp = so.FindProperty("entityRegistry");
+            var reg = AssetDatabase.LoadAssetAtPath<EntityRegistrySO>(
+                "Assets/ScriptableObjects/Entities/EntityRegistry.asset");
+            if (regProp != null && reg != null) regProp.objectReferenceValue = reg;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            if (reg == null)
+                Debug.LogWarning("[Fix055] EntityRegistry.asset not found at the canonical path — assign the " +
+                                 "DamageIndicatorUI's Entity Registry field manually, or it won't bind.");
+
+            EditorSceneManager.MarkSceneDirty(go.scene);
+            EditorSceneManager.SaveScene(go.scene);
+            Selection.activeObject = go;
+            EditorGUIUtility.PingObject(go);
+            Debug.Log("[Fix055] Added DamageIndicators (DamageIndicatorUI, last sibling) under the HUD canvas; " +
+                      "indicator prefab + EntityRegistry wired. Tune ringRadius/lifetime on the component.");
+        }
     }
 }

@@ -17,7 +17,9 @@ namespace BlastFrame.Gameplay.Enemies
         protected EnemyStats Stats { get; private set; }
         protected EnemyCore Core { get; private set; }
 
-        protected Transform Player => entityRegistry != null ? entityRegistry.PlayerTransform : null;
+        // Nearest live player to THIS enemy (co-op targets whichever player is closer; single-player is
+        // unchanged since there is only one). Resolved per access — the registry loops ≤2 entries.
+        protected Transform Player => entityRegistry != null ? entityRegistry.GetNearestPlayer(transform.position) : null;
         protected bool HasPlayer => entityRegistry != null && entityRegistry.HasPlayer;
 
         protected virtual void Awake()

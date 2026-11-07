@@ -7,6 +7,9 @@ namespace BlastFrame.Gameplay
     public interface IDamageable
     {
         void TakeDamage(int amount);
+        /// <summary>Damage with source info. Default forwards to the plain overload so existing
+        /// implementers (enemies) are unaffected; PlayerHealth overrides it.</summary>
+        void TakeDamage(in DamageInfo info) => TakeDamage(info.Amount);
         bool IsDead { get; }
     }
 }

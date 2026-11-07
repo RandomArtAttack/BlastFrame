@@ -1,0 +1,16 @@
+{
+    "name": "RAA.BlenderMode.Editor",
+    "rootNamespace": "RAA.BlenderMode",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

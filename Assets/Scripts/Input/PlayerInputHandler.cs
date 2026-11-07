@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using BlastFrame.Core;
 
 namespace BlastFrame.Input
@@ -23,100 +25,76 @@ namespace BlastFrame.Input
     }
 
     /// <summary>
-    /// Wraps the generated InputSystem_Actions class (Project: enable "Generate C# Class" on
-    /// Assets/InputSystem_Actions.inputactions). Exposes clean C# events + value getters. Jump
-    /// exposes BOTH press and release for variable jump height. Registered as IPlayerInput.
-    /// Lives in the Core scene; gameplay gets it via ServiceLocator in Start (never Awake).
+    /// Player-index-aware input source. Hands out the <see cref="IPlayerInput"/> for player N. P1 (index
+    /// 0) is always present and is ALSO registered as the global <see cref="IPlayerInput"/> service for
+    /// back-compat; local co-op adds P2 (index 1) at runtime via <see cref="AddPlayer"/>.
     /// </summary>
-    public class PlayerInputHandler : MonoBehaviour, IPlayerInput
+    public interface IPlayerInputProvider
     {
-        private InputSystem_Actions _actions;
-        private bool _enabled = true;
+        int PlayerCount { get; }
+        IPlayerInput GetInput(int playerIndex);
+        int AddPlayer(InputDevice[] devices);
+        void RemovePlayer(int playerIndex);
+        void SetPlayerDevices(int playerIndex, InputDevice[] devices);
+    }
 
-        public Vector2 Move { get; private set; }
-        public Vector2 Look { get; private set; }
-        public bool LookFromGamepad { get; private set; }
-        public bool JumpHeld { get; private set; }
-        public bool FireHeld { get; private set; }
+    /// <summary>
+    /// Owns one <see cref="PlayerInputReader"/> per local player and polls them each frame. Registers
+    /// reader 0 (P1) as the global <see cref="IPlayerInput"/> service (so every existing consumer keeps
+    /// working unchanged) and registers itself as <see cref="IPlayerInputProvider"/> so co-op can add a
+    /// second player. Lives in the Core scene; gameplay resolves its per-player input via
+    /// <see cref="PlayerInputResolver"/> in Start (never Awake).
+    /// </summary>
+    public class PlayerInputHandler : MonoBehaviour, IPlayerInputProvider
+    {
+        private readonly List<PlayerInputReader> _readers = new List<PlayerInputReader>();
 
-        public event Action OnJumpPressed;
-        public event Action OnJumpReleased;
-        public event Action OnDashPressed;
-        public event Action OnDashReleased;
-        public event Action OnFirePressed;
-        public event Action OnFireReleased;
-        public event Action OnInteract;
+        public int PlayerCount => _readers.Count;
 
         private void Awake()
         {
-            _actions = new InputSystem_Actions();
-            ServiceLocator.Register<IPlayerInput>(this);
+            // P1 with null devices = reads all devices (keyboard+mouse+any gamepad) — original behaviour.
+            var p1 = new PlayerInputReader(0, null);
+            _readers.Add(p1);
+            ServiceLocator.Register<IPlayerInput>(p1);
+            ServiceLocator.Register<IPlayerInputProvider>(this);
         }
-
-        private void OnEnable()
-        {
-            if (_actions == null) return;
-            _actions.Player.Enable();
-
-            _actions.Player.Jump.started += OnJumpStarted;
-            _actions.Player.Jump.canceled += OnJumpCanceled;
-            _actions.Player.Sprint.started += OnDashStarted;
-            _actions.Player.Sprint.canceled += OnDashCanceled;
-            _actions.Player.Attack.started += OnFireStarted;
-            _actions.Player.Attack.canceled += OnFireCanceled;
-            _actions.Player.Interact.started += OnInteractStarted;
-        }
-
-        private void OnDisable()
-        {
-            if (_actions == null) return;
-            _actions.Player.Jump.started -= OnJumpStarted;
-            _actions.Player.Jump.canceled -= OnJumpCanceled;
-            _actions.Player.Sprint.started -= OnDashStarted;
-            _actions.Player.Sprint.canceled -= OnDashCanceled;
-            _actions.Player.Attack.started -= OnFireStarted;
-            _actions.Player.Attack.canceled -= OnFireCanceled;
-            _actions.Player.Interact.started -= OnInteractStarted;
-            _actions.Player.Disable();
-        }
-
-        private void OnDestroy() => ServiceLocator.Unregister<IPlayerInput>(this);
 
         private void Update()
         {
-            if (!_enabled)
-            {
-                Move = Vector2.zero;
-                Look = Vector2.zero;
-                return;
-            }
-            Move = _actions.Player.Move.ReadValue<Vector2>();
-            Look = _actions.Player.Look.ReadValue<Vector2>();
-
-            // Route look sensitivity by the device actually driving the action this frame
-            // (a connected-but-idle gamepad must NOT hijack mouse sensitivity). activeControl is
-            // null when the action is at rest — keep the last known device in that case.
-            var lookControl = _actions.Player.Look.activeControl;
-            if (lookControl != null)
-                LookFromGamepad = lookControl.device is UnityEngine.InputSystem.Gamepad;
-
-            JumpHeld = _actions.Player.Jump.IsPressed();
-            FireHeld = _actions.Player.Attack.IsPressed();
+            for (int i = 0; i < _readers.Count; i++) _readers[i].Poll();
         }
 
-        private void OnJumpStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnJumpPressed?.Invoke(); }
-        private void OnJumpCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnJumpReleased?.Invoke(); }
-        private void OnDashStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnDashPressed?.Invoke(); }
-        private void OnDashCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnDashReleased?.Invoke(); }
-        private void OnFireStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnFirePressed?.Invoke(); }
-        private void OnFireCanceled(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnFireReleased?.Invoke(); }
-        private void OnInteractStarted(UnityEngine.InputSystem.InputAction.CallbackContext _) { if (_enabled) OnInteract?.Invoke(); }
-
-        public void SetInputEnabled(bool enabled)
+        private void OnDestroy()
         {
-            _enabled = enabled;
-            JumpHeld = false;
-            FireHeld = false;
+            if (_readers.Count > 0) ServiceLocator.Unregister<IPlayerInput>(_readers[0]);
+            ServiceLocator.Unregister<IPlayerInputProvider>(this);
+            for (int i = 0; i < _readers.Count; i++) _readers[i].Dispose();
+            _readers.Clear();
+        }
+
+        public IPlayerInput GetInput(int playerIndex)
+            => (playerIndex >= 0 && playerIndex < _readers.Count) ? _readers[playerIndex] : null;
+
+        public int AddPlayer(InputDevice[] devices)
+        {
+            int index = _readers.Count;
+            _readers.Add(new PlayerInputReader(index, devices));
+            return index;
+        }
+
+        public void RemovePlayer(int playerIndex)
+        {
+            // P1 is permanent; only additional players are removable.
+            if (playerIndex <= 0 || playerIndex >= _readers.Count) return;
+            _readers[playerIndex].Dispose();
+            _readers.RemoveAt(playerIndex);
+        }
+
+        public void SetPlayerDevices(int playerIndex, InputDevice[] devices)
+        {
+            if (playerIndex < 0 || playerIndex >= _readers.Count) return;
+            _readers[playerIndex].SetDevices(devices);
         }
     }
 }

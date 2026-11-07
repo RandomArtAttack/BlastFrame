@@ -2,6 +2,7 @@ using UnityEngine;
 using BlastFrame.Core;
 using BlastFrame.Core.Pooling;
 using BlastFrame.Core.Services;
+using BlastFrame.Gameplay;
 
 namespace BlastFrame.Gameplay.Projectiles
 {
@@ -91,6 +92,10 @@ namespace BlastFrame.Gameplay.Projectiles
             if (_despawned) return;
             if (Time.time < _collisionGraceUntil) return;
 
+            // Ignore non-damageable trigger volumes (lava hazard zones, secret triggers, etc.) — they
+            // aren't solid and must not detonate the projectile.
+            if (other.isTrigger && other.GetComponentInParent<IDamageable>() == null) return;
+
             // Ignore other arc projectiles — no friendly-fire between simultaneous volleys.
             if (other.TryGetComponent<ArcProjectile>(out _)) return;
 
@@ -107,6 +112,9 @@ namespace BlastFrame.Gameplay.Projectiles
         {
             if (_despawned) return;
             _despawned = true;
+            // Resolve lazily: a point-blank spawn can impact in the same tick, before Start() runs — a
+            // null _pool then would leak the instance (active forever, pool slot lost). TryGet never throws.
+            if (_pool == null) ServiceLocator.TryGet(out _pool);
             _pool?.Despawn(gameObject);
         }
     }

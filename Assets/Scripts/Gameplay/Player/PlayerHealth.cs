@@ -21,13 +21,20 @@ namespace BlastFrame.Gameplay.Player
         [Tooltip("Optional event raised when the player dies.")]
         [SerializeField] private GameEventSO onDeathEvent;
 
+        [Tooltip("Seconds of invulnerability after taking any damage. 0 disables.")]
+        [SerializeField] private FloatReference invulnerabilitySeconds = new FloatReference(0.5f);
+
         public int Current { get; private set; }
         public int Max { get; private set; }
         public bool IsDead => Current <= 0;
+        public bool IsInvulnerable => Time.time < _invulnUntil;
+
+        private float _invulnUntil;
 
         /// <summary>(current, max)</summary>
         public event Action<int, int> OnHealthChanged;
         public event Action OnDeath;
+        public event Action<DamageInfo> OnDamagedInfo;
 
         private void Awake()
         {
@@ -37,12 +44,16 @@ namespace BlastFrame.Gameplay.Player
 
         private void Start() => OnHealthChanged?.Invoke(Current, Max);
 
-        public void TakeDamage(int amount)
+        public void TakeDamage(int amount) => TakeDamage(new DamageInfo(amount, DamageKind.Unknown));
+
+        public void TakeDamage(in DamageInfo info)
         {
-            if (amount <= 0 || IsDead) return;
-            Current = Mathf.Max(0, Current - amount);
+            if (info.Amount <= 0 || IsDead || IsInvulnerable) return;
+            Current = Mathf.Max(0, Current - info.Amount);
             OnHealthChanged?.Invoke(Current, Max);
             onDamagedEvent?.Raise();
+            _invulnUntil = Time.time + invulnerabilitySeconds.Value;
+            OnDamagedInfo?.Invoke(info);
             if (Current == 0)
             {
                 OnDeath?.Invoke();

@@ -39,7 +39,7 @@ namespace BlastFrame.CameraRig
             if (body == null && transform.parent != null) body = transform.parent;
         }
 
-        private void Start() => _input = ServiceLocator.Get<IPlayerInput>();
+        private void Start() => _input = PlayerInputResolver.Resolve(this);
 
         private void LateUpdate()
         {

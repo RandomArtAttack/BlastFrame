@@ -1,29 +1,19 @@
-LAST LEFT OFF — 2026-06-25 (end of day)
-LAST ACTION: Fixed dash-on-bobbing-rock regression — DashModule now gates its horizontal override on
-  onSurface = IsGrounded || PlatformRiderModule.IsRiding (IsRiding survives the rock's ground-check
-  flicker), so the dash carries on a bobbing rock yet still releases to air control on a real dash-jump.
-  Committed + pushed all of the day's work on branch docs/design-architecture.
-
-CURRENT STATE (all implemented this session + logged in GameDesign.md / GameInfo.md):
-  - MovingPlatform: enable/disable-component-at-index (toggles a sibling at a waypoint), path smoothing
-    (ease in/out via decelerationPower; ramp ~Speed^2/(2*power)), start-index always spawns AT index x.
-  - RockBobber: ownership claim moved to OnEnable/OnDisable (no platform freeze when disabled per-waypoint);
-    on-enable smooth blend (enableLerpDuration, default 0.5s) instead of snapping into the bob.
-  - LedgeVaultModule (NEW): automatic mantle/vault over a near-miss ledge (gun clears, feet catch). Order 35.
-    Attach via Implement Fix 052. Pop auto-sized to clear the lip + vaultUpBonus feel.
-  - PlayerController air control: projection accel (no decel when already over MoveSpeed) — dash-jump keeps
-    forward momentum, sideways steers, back slows.
-  - DashModule: dash-jump keeps air control + bobbing-rock fix (IsRiding gate).
-  - Crush: PlayerMotor.ResolveOverlaps already provides push-out; no new code (decided platforms = guaranteed path).
-
-NEXT STEP: Playtest the full movement loop on the lava bridge — dash-jump off the bobbing rock, ledge vault,
-  platform path-smoothing feel. Tune LedgeVaultModule (maxVaultHeight / vaultUpBonus) and MovingPlatform
-  decelerationPower (~128 for Speed 32) to taste.
-
-PENDING MANUAL STEPS:
-  - Tools > Blast Frame > Implement Fix > 052 - Add Ledge Vault Module To Player (if not yet run).
-  - On Lava Rock Platform 001: tick Path Smoothing + set Deceleration Power (~128) if you want easing.
-
-BLOCKERS / OPEN QUESTIONS:
-  - Air-strafe speed gain is now possible (projection-accel side effect) — left in as platformer tech; revisit if unwanted.
-  - Ledge vault is automatic (no button) — confirm that feel, or gate it behind hold-jump.
+LAST LEFT OFF — [2026-07-10]
+LAST ACTION: Developer reviewed the 2026-07-09 overnight batch (HANDOFF-005..008) and confirmed
+"things seem to be working great." Session closed.
+CURRENT STATE (tree GREEN, compiles clean, NOTHING committed — all in working tree):
+  - Bug review pass done (pool-leak fix in projectile Despawn; overlay under HUD; flyer repositioned).
+  - CameraFeel movement juice live on the Core player camera (dash FOV kick, landing dip, wall lean,
+    strafe roll — all FloatReference-tunable, defaults in GameInfo.md).
+  - Five pathfinding enemies live in Sandbox (Lobber, Skirmisher, Missiler, Biter, Bat) + baked
+    NavMesh + shootable HomingMissile + wizards under Tools/Blast Frame/Enemies/.
+  - Local split-screen 2P co-op WORKS (gamepad Start joins P2, hold Start 1s leaves; enemies target
+    nearest player). Online co-op code shipped inert behind #if BLASTFRAME_NGO — NGO package install
+    BLOCKED by UPM TLS cert failure on this machine.
+NEXT STEP: Commit the working tree (it's large: ~140 changed/new files, all reviewed-by-agent and
+verified live). Then either finish online co-op (install NGO on working-TLS network + BLASTFRAME_NGO
+define + Tools/Blast Frame/Multiplayer wizards) or move to the next feature.
+PENDING MANUAL STEPS: real-gamepad co-op smoke test; delete leftover FlyingEnemy (Hoverbot) in Core
+if unwanted; optional flyer z→26 in Area1LavaBridge; enemy/CameraFeel tuning to taste.
+BLOCKERS / OPEN QUESTIONS: NGO install blocked by UPM "unable to verify the first certificate"
+(environment TLS — retry on another network or fix cert chain/AV proxy).

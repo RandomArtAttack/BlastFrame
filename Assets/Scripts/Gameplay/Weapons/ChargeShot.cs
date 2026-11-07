@@ -34,7 +34,7 @@ namespace BlastFrame.Gameplay.Weapons
 
         private void Start()
         {
-            _input = ServiceLocator.Get<IPlayerInput>();
+            _input = PlayerInputResolver.Resolve(this);
             _input.OnFirePressed += HandleFirePressed;
             _input.OnFireReleased += HandleFireReleased;
         }

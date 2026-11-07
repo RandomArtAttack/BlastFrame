@@ -18,6 +18,8 @@ namespace BlastFrame.Core
         public const string ArcProjectile = "ArcProjectile";
         public const string ArcExplosion = "ArcExplosion";
         public const string Explosion = "Explosion";
+        public const string HomingMissile = "HomingMissile";
+        public const string HomingPop = "HomingPop";
     }
 
     /// <summary>Audio mixer exposed parameter names — no magic strings for mixer params.</summary>

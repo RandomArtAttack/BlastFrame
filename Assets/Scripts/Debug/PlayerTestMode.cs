@@ -41,7 +41,7 @@ namespace BlastFrame.Debugging
 
         private void Start()
         {
-            _input = ServiceLocator.Get<IPlayerInput>();
+            _input = PlayerInputResolver.Resolve(this);
             _input.OnJumpPressed += OnJumpPressed;
         }
 

@@ -23,6 +23,11 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private bool _sliding;
         private bool _jumpQueued;
+
+        /// <summary>True while the player is wall-sliding (airborne and adjacent to a wall). Read by
+        /// the camera-feel layer for the wall lean; updated each Tick.</summary>
+        public bool IsSliding => _sliding;
+
         private bool _dashJumpQueued;
         private float _lockoutTimer;
         private Vector3 _lockoutHoriz;
@@ -31,7 +36,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private void Start()
         {
-            _input = ServiceLocator.Get<IPlayerInput>();
+            _input = PlayerInputResolver.Resolve(this);
             _input.OnJumpPressed += OnJumpPressed;
             _input.OnDashPressed += OnDashPressed;
         }

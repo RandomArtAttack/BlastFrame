@@ -47,7 +47,7 @@ namespace BlastFrame.Gameplay.Player
         private void OnEnable() => entityRegistry?.RegisterPlayer(transform);
         private void OnDisable() => entityRegistry?.UnregisterPlayer(transform);
 
-        private void Start() => _input = ServiceLocator.Get<IPlayerInput>();
+        private void Start() => _input = PlayerInputResolver.Resolve(this);
 
         private void FixedUpdate()
         {

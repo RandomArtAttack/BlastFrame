@@ -48,7 +48,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private void Start()
         {
-            _input = ServiceLocator.Get<IPlayerInput>();
+            _input = PlayerInputResolver.Resolve(this);
             _input.OnDashPressed += OnDashPressed;
             _input.OnDashReleased += OnDashReleased;
         }

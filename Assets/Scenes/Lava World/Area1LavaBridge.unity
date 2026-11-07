@@ -517,6 +517,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &20409562 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 2057219671}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &23722446
 GameObject:
   m_ObjectHideFlags: 0
@@ -607,6 +612,80 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 23722446}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!1 &25285388
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 25285389}
+  - component: {fileID: 25285391}
+  - component: {fileID: 25285390}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &25285389
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 25285388}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1401453645}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &25285390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 25285388}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &25285391
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 25285388}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1 &27004760
 GameObject:
   m_ObjectHideFlags: 0
@@ -1047,6 +1126,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -5622,6 +5702,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -5762,6 +5843,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -8452,6 +8534,80 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 7892016816126272445, guid: 45244454c0bce864ca26ff703e2aa8ff, type: 3}
+--- !u!1 &320236001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 320236002}
+  - component: {fileID: 320236004}
+  - component: {fileID: 320236003}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &320236002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320236001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1454844802}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &320236003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320236001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &320236004
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 320236001}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1001 &320767986
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10918,6 +11074,11 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 385466692}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!4 &386966794 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 1473686035}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &391449058
 GameObject:
   m_ObjectHideFlags: 0
@@ -13701,6 +13862,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -14175,6 +14337,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -14299,6 +14462,11 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 514025414}
   m_Mesh: {fileID: -2869150989003543137, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!4 &518867313 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 1493731360}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &523973173
 GameObject:
   m_ObjectHideFlags: 0
@@ -14973,7 +15141,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 25285389}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
 --- !u!1 &546048975
@@ -16735,6 +16906,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -18879,6 +19051,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -18997,6 +19170,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -21284,6 +21458,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &747531555 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 1323126978}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &757846049
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -22673,7 +22852,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 320236002}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -24819,7 +25001,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2019103196}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -24886,7 +25071,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2039027601}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -25167,6 +25355,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -25491,7 +25680,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1478500960}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -27721,6 +27913,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -28105,6 +28298,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -28335,6 +28529,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -32618,6 +32813,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -35951,6 +36147,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &1262426287 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 871036792}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1263658692
 GameObject:
   m_ObjectHideFlags: 0
@@ -36387,6 +36588,80 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 1925641724}
   m_SourcePrefab: {fileID: 100100000, guid: 45244454c0bce864ca26ff703e2aa8ff, type: 3}
+--- !u!1 &1275295773
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1275295774}
+  - component: {fileID: 1275295776}
+  - component: {fileID: 1275295775}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1275295774
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275295773}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 386966794}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1275295775
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275295773}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1275295776
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1275295773}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1 &1278255967
 GameObject:
   m_ObjectHideFlags: 0
@@ -37906,7 +38181,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1374462022}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -39135,6 +39413,80 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 897317126570238912, guid: 15cf8959b1dd90e4ea7c9baa27a914a6, type: 3}
   m_PrefabInstance: {fileID: 72274596}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1374462021
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1374462022}
+  - component: {fileID: 1374462024}
+  - component: {fileID: 1374462023}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1374462022
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1374462021}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 747531555}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1374462023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1374462021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1374462024
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1374462021}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1 &1378521637
 GameObject:
   m_ObjectHideFlags: 0
@@ -40363,6 +40715,11 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1397544229}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!4 &1401453645 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 544382826}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1402328069
 GameObject:
   m_ObjectHideFlags: 0
@@ -41781,6 +42138,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &1454844802 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 793956050}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1456017203 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 2b801084a65486e45946f5cf400f4f22, type: 3}
@@ -42180,6 +42542,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &1468857263 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 871257963}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1472430023
 GameObject:
   m_ObjectHideFlags: 0
@@ -42376,6 +42743,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -42468,7 +42836,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1275295774}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
 --- !u!4 &1473913606 stripped
@@ -42656,6 +43027,80 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1478055523}
   m_Mesh: {fileID: -2869150989003543137, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!1 &1478500959
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1478500960}
+  - component: {fileID: 1478500962}
+  - component: {fileID: 1478500961}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1478500960
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478500959}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1742299014}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1478500961
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478500959}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1478500962
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1478500959}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1001 &1489821249
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -42764,6 +43209,80 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 8958188026534473606, guid: 2b801084a65486e45946f5cf400f4f22, type: 3}
+--- !u!1 &1491745721
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1491745722}
+  - component: {fileID: 1491745724}
+  - component: {fileID: 1491745723}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1491745722
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491745721}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1537386221}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1491745723
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491745721}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1491745724
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1491745721}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1001 &1493731360
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -42822,7 +43341,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1779060548}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
 --- !u!1 &1495165508
@@ -43021,6 +43543,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -44628,6 +45151,11 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1536186527}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!4 &1537386221 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 6447509940401490693}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1542375390
 GameObject:
   m_ObjectHideFlags: 0
@@ -49335,6 +49863,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -49720,6 +50249,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -50148,6 +50678,11 @@ MonoBehaviour:
   randomizeOffset: 1
   speedJitter: 0.15
   seed: 0
+--- !u!4 &1742299014 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+  m_PrefabInstance: {fileID: 885698538}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1746166223
 GameObject:
   m_ObjectHideFlags: 0
@@ -50740,6 +51275,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -50923,6 +51459,80 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 897317126570238912, guid: 15cf8959b1dd90e4ea7c9baa27a914a6, type: 3}
   m_PrefabInstance: {fileID: 352058602}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1772395884
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1772395885}
+  - component: {fileID: 1772395887}
+  - component: {fileID: 1772395886}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1772395885
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772395884}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 20409562}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1772395886
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772395884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1772395887
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1772395884}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1 &1774940368
 GameObject:
   m_ObjectHideFlags: 0
@@ -51309,6 +51919,80 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1777986553}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!1 &1779060547
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1779060548}
+  - component: {fileID: 1779060550}
+  - component: {fileID: 1779060549}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1779060548
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779060547}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 518867313}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1779060549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779060547}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &1779060550
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1779060547}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1001 &1779998480
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -53196,6 +53880,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -54881,6 +55566,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -57723,6 +58409,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -58080,6 +58767,80 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2016904808}
   m_Mesh: {fileID: 2577264571791089500, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!1 &2019103195
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2019103196}
+  - component: {fileID: 2019103198}
+  - component: {fileID: 2019103197}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2019103196
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2019103195}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1262426287}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2019103197
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2019103195}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &2019103198
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2019103195}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1 &2026267641
 GameObject:
   m_ObjectHideFlags: 0
@@ -58620,6 +59381,80 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2037794165}
   m_Mesh: {fileID: -3618639283492614778, guid: e1d9482fe8ef746429ada95d4267403e, type: 3}
+--- !u!1 &2039027600
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2039027601}
+  - component: {fileID: 2039027603}
+  - component: {fileID: 2039027602}
+  m_Layer: 0
+  m_Name: Lava Hazard
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2039027601
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039027600}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1468857263}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2039027602
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039027600}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4253f33f007064479e0776d033c2ecb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlastFrame.Gameplay.Environment.LavaHazardVolume
+  damagePerTick:
+    UseConstant: 1
+    ConstantValue: 1
+    Variable: {fileID: 0}
+  tickInterval:
+    UseConstant: 1
+    ConstantValue: 0.75
+    Variable: {fileID: 0}
+--- !u!65 &2039027603
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2039027600}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 9.495282, y: 258.0089, z: 9.495285}
+  m_Center: {x: 0.000005722046, y: 0.0000076293945, z: 0.00005340576}
 --- !u!1001 &2040329465
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -59183,7 +60018,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1772395885}
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2236547114073003829, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
       insertIndex: -1
@@ -59561,6 +60399,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -60040,6 +60879,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -60180,6 +61020,7 @@ MonoBehaviour:
     UseConstant: 1
     ConstantValue: 2
     Variable: {fileID: 0}
+  enableLerpDuration: 0.5
   alignToSurface: 0
   alignStrength:
     UseConstant: 1
@@ -61443,7 +62284,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 1116748048972455474, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1491745722}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 86ca2538c5a66fe498c3f80cfe0348c1, type: 3}
 --- !u!1001 &7039086064298743530

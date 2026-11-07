@@ -4,6 +4,28 @@ Entries are cumulative. Never remove. Amend if a pattern changes.
 
 ---
 
+## Camera — CameraFeel (movement juice)
+
+### CameraFeel
+**Namespace:** `BlastFrame.CameraRig`
+**File:** `Assets/Scripts/Camera/CameraFeel.cs`
+**Type:** MonoBehaviour on the player's first-person **Camera** GameObject (`Player/YawPivot/Camera`), sibling to `FirstPersonCamera` and `CameraShake`. `[RequireComponent(Camera)]`, `[DefaultExecutionOrder(100)]` so its LateUpdate composes AFTER the look rig and shake each frame.
+**Purpose:** Pure feedback layer — makes speed *feel* like speed. Reads existing motor/module state (no mechanics changes) and applies: **Dash FOV kick** (FOV +`dashFovKick` while `DashModule.IsDashing`, fast rise / slow decay), **Speed FOV** (additive FOV scaled by horizontal speed above `PlayerStats.MoveSpeed`), **Landing dip** (camera dips local-Y on hard landings, impact-scaled with a dead-zone, critically-damped spring back), **Wall-slide lean** (rolls away from `PlayerMotor.WallNormal` while `WallSlideModule.IsSliding`), **Strafe roll** (subtle roll opposite lateral velocity while grounded). **No head-bob** (deliberately omitted — it fights precision platforming).
+**Self-containment:** caches its own `Camera` + sibling `CameraShake` via `GetComponent`, and `PlayerMotor` / `DashModule` / `WallSlideModule` / `PlayerStats` via `GetComponentInParent` (camera is a child of the Player root). Null-tolerant: any missing sibling just disables that effect — no Inspector cross-wiring.
+**Composition (how it avoids fighting the look rig):** `FirstPersonCamera` re-sets `localRotation` to pure pitch every LateUpdate and `CameraShake` re-sets `localPosition` every LateUpdate; CameraFeel runs last (order 100) and **post-multiplies** roll onto the current rotation and **adds** the dip onto the current position, so nothing accumulates. If NO `CameraShake` sibling exists it instead reconstructs position from a captured rest pose. FOV is written on THIS (base) camera only — the stacked overlay **ViewmodelCamera** keeps constant FOV during a dash by design (desirable).
+**Tuning (all `FloatReference`, set any magnitude to 0 to disable that effect):** `dashFovKick`(12) `dashFovRiseTime`(0.06) `dashFovDecayTime`(0.2) `speedFovMax`(4) `speedFovRange`(8) `speedFovSmoothTime`(0.1) `landDipMax`(0.25) `landDipDeadZone`(6) `landDipFullSpeed`(18) `landDipSpringHz`(8) `wallLeanDegrees`(5) `wallLeanSmoothTime`(0.15) `strafeRollDegrees`(1.5) `strafeRollSmoothTime`(0.12).
+**Setup steps:**
+1. **Tools > Blast Frame > Player > Add Camera Feel** — adds CameraFeel to every `FirstPersonCamera` in the open scene(s). The player lives in the **Core** scene and persists across additive level loads, so adding it once to the Core player camera covers ALL level scenes (Sandbox, Area1LavaBridge, …). There is a single FirstPersonCamera in the project.
+2. Save the Core scene.
+3. Tune magnitudes in the Inspector (live in Play mode).
+**Gotchas:**
+- **Wired on the Core player only.** Sandbox / Area1LavaBridge do NOT have their own player camera — they use Core's persistent player. Don't add a duplicate.
+- **FloatReference defaults & fresh-Play timing.** Defaults come from the `= new FloatReference(x)` field initializers and ARE serialized to the scene (verified in `Core.unity`). If you add the component via the wizard and press Play *before the recompile settles*, the play-mode instance can transiently load all-zero (effects appear disabled). Stop, let compilation finish, Play again — the saved scene has the correct values. Same pattern as `PlayerStats`.
+- **Roll composition depends on `FirstPersonCamera` resetting rotation each frame** (it does, once input is available). It post-multiplies roll and does not touch pitch/yaw.
+- Setting every magnitude to 0 makes the camera behave EXACTLY as before the component existed (base FOV, look rotation, shake position only) — verified.
+
+---
+
 ## Player Movement — LedgeVaultModule (mantle assist)
 
 ### LedgeVaultModule
@@ -621,3 +643,208 @@ The HUD lives on a "HUD" Canvas (Screen Space Overlay) in the Core scene. `HUDCo
 ### Player Camera child (Core) — rebuild
 **Rebuild fix:** `Tools > Blast Frame > Implement Fix > 037` reconstructs the deleted `Player/Camera` child in Core exactly as Fix 004 + Fix 012 built it (Camera + AudioListener + FirstPersonCamera[body→Player] + CameraShake + ChargeShot + PlayerShooter).
 **Gotcha:** The camera transform IS the weapon muzzle, so deleting the camera also deletes the shooter rig — Fix 037 restores both. Fix 004 cannot rebuild it (aborts when a Player already exists).
+
+## Damage Pipeline — DamageInfo + player i-frames (2026-07-07)
+
+### DamageInfo / DamageKind
+**Namespace:** `BlastFrame.Gameplay` — **File:** `Assets/Scripts/Gameplay/DamageInfo.cs`
+Readonly struct: `Amount`, `SourcePosition` (world point the damage came FROM), `Kind`
+(Projectile/Explosion/Contact/Hazard/Submersion), `HasSource`. Two ctors: with source position, and
+sourceless (`HasSource=false` — directional UI skips these).
+**IDamageable** gained `void TakeDamage(in DamageInfo info)` with a DEFAULT interface implementation
+forwarding to `TakeDamage(int)` — enemies need no changes; PlayerHealth overrides it.
+**PlayerHealth additions:** `invulnerabilitySeconds` FloatReference (0.5), `IsInvulnerable`,
+`event Action<DamageInfo> OnDamagedInfo`. The info overload is the canonical path (i-frame early-out,
+sets the window, raises OnDamagedInfo after OnHealthChanged, death events last).
+**Setup:** nothing — pure code. **Gotcha:** DoT sources must tick SLOWER than the 0.5 s i-frames
+(house default 0.75 s) or ticks get eaten; that spacing is the design, don't bypass i-frames.
+
+## Environment — Lava damage (hazard volumes + submersion) (2026-07-07)
+
+### LavaV4Sampler (shared CPU mirror of the V.4 vertex churn)
+**File:** `Assets/Scripts/Gameplay/Environment/LavaV4Sampler.cs` (static).
+`TryCache(material, noiseIsSRGB, out V4Params)` + `SampleDisp(in params, meshUV, t)` — the exact
+math RockBobber used privately; RockBobber now consumes this. Any future system that needs the
+visual lava height MUST go through it (single source of truth with the shader).
+
+### LavaHazardVolume (waterfall / splash touch damage)
+**Required:** any Collider (forced isTrigger in Awake) + `LavaHazardVolume`. Default layer, NOT Lava.
+**Behavior:** immediate 1-dmg tick on player entry, then per `tickInterval` (0.75) while inside;
+damage kind Hazard with source = ClosestPoint (feeds directional indicators). Pass-through by design
+(motor ignores triggers) — dash through a lava waterfall and take one tick.
+**Setup:** `Tools > Blast Frame > Environment > Create Lava Hazard Volume`, size the box over the fall.
+
+### LavaSubmersionDetector (head under the displaced river surface)
+**Required:** on the Player root (with PlayerHealth). Added by **Implement Fix 053**, which ALSO
+removes the Lava layer from PlayerMotor.collisionMask (player now falls INTO the river).
+**Behavior:** FixedUpdate ray down on the Lava layer from head+probeHeight; displaced surface =
+`hit.point.y + LavaV4Sampler.SampleDisp(hit.textureCoord) * lossyScale.y`; head below → submerged:
+`OnSubmergedChanged`, DoT (Submersion kind, sourceless) per 0.75 s, exit hysteresis 0.05, miss-grace 0.3.
+**Gotchas:** river collider must be ON the Lava layer and its mesh Read/Write (Fix 046) or
+textureCoord is (0,0); non-V4 lava materials degrade gracefully to the flat collider height.
+
+### DamageOverlayUI (orange screen)
+**Required:** HUD canvas child with a full-screen Image; added by **Implement Fix 054**.
+**Behavior:** translucent orange flash on ANY damage (0.4 s fade); near-opaque orange wash while
+submerged (fade in 0.15 / out 0.3); submersion floor wins (max of alphas); Image disabled at alpha 0;
+raycastTarget forced off. Binds via EntityRegistry (HealthDisplay pattern); submersion detector optional.
+
+### Projectiles vs trigger volumes (companion fix)
+`EnemyMissile`, `ArcProjectile`, `PlayerProjectile` now IGNORE trigger colliders that have no
+IDamageable ancestor — projectiles no longer detonate on invisible gameplay volumes (lava hazards,
+future secret/room triggers).
+
+## Enemies — Flying Enemy "Hoverbot" (2026-07-07)
+
+### EnemyBehaviorFlyer
+**Namespace:** `BlastFrame.Gameplay.Enemies` — **File:** `Assets/Scripts/Gameplay/Enemies/EnemyBehaviorFlyer.cs`
+**Required components (root):** kinematic interpolated Rigidbody, SphereCollider (r 0.5), EnemyStats,
+EnemyCore, EnemyBehaviorFlyer, `Muzzle` child assigned. Layer **Enemy**.
+**Required SOs:** EntityRegistry on EnemyCore AND the behavior (separate fields).
+**Stats used:** MoveSpeed (fly, ~7), FireRate (bursts/s, ~0.5), Damage (1), ProjectileSpeed, Range (30).
+**Behavior:** orbit ring at `preferredRange` (10) around the player at eye+`hoverHeight` (2.5) with
+random strafe flips + hover bob; 3-missile bursts (pooled `EnemyMissile`, `leadFactor` 0.5 linear lead)
+gated on range band + `EnemyLineOfSight`; dodges laterally when the player CAMERA aims at it
+(`aimDotThreshold` 0.985 held `aimReactionTime` 0.18 s, cooldown 1.2 s) + 35% micro-dodge after bursts;
+repositions (height/angle re-roll) every 4 s. Spherecast obstacle slide; no pathfinding.
+**Setup:** `Tools > Blast Frame > Enemies > Create Flying Enemy Prefab` →
+`Assets/Prefabs/Enemies/FlyingEnemy.prefab`.
+**Gotchas:** PoolConfig needs an `EnemyMissile` entry sized for bursts (prewarm ≥ 12); the
+Enemy×EnemyWeapon layer-matrix pair must stay disabled so its own missiles never clip it; dodge
+needs the player camera (found via registry player's children — never Camera.main).
+
+### EnemyLineOfSight (shared helper)
+**File:** `Assets/Scripts/Gameplay/Enemies/EnemyLineOfSight.cs` (static, non-allocating).
+Multi-point LOS vs a target's collider bounds (center/top/bottom/sides), self+target skipped as
+blockers — the generalized port of the arc turret's private check (turret intentionally NOT
+refactored onto it yet; see Handoffs/PLAN-001 F7).
+
+## HUD — Directional Damage Indicators (2026-07-07)
+
+### DamageIndicatorUI
+**Namespace:** `BlastFrame.UI` — **File:** `Assets/Scripts/UI/DamageIndicatorUI.cs`
+**Required:** child `DamageIndicators` (centered, zero-size) under the HUD canvas + the
+`DamageIndicator.prefab` UI asset (arrow/knob Image, authored pointing UP). Both created by
+**Implement Fix 055**.
+**Behavior:** on `PlayerHealth.OnDamagedInfo` with `HasSource`, claims one of 6 pooled slots (oldest
+recycled) and shows an arrow on a 140 px ring at the source's bearing relative to the player
+CAMERA forward (bearing 0 = top of ring); re-aims every frame while alive (stays world-accurate as
+you turn); fades over the last 60% of a 1.6 s life. Sourceless damage (submersion) shows nothing.
+**Setup:** run Fix 055 in the scene with the HUD canvas.
+**Gotchas:** camera cached from the registry player's children (never Camera.main); if the arrow
+sprite is replaced, author it pointing UP or the `-bearing` z-rotation reads wrong; all Images are
+non-raycast.
+
+---
+
+## Pathfinding Enemies (2026-07-09) — NavMesh + Lobber / Skirmisher / Missiler / Biter / Bat
+
+### NavMesh baking
+**Tool:** `Tools > Blast Frame > Level > Bake NavMesh` (`Assets/Editor/NavMeshBakeTool.cs`).
+Finds or creates a `NavMeshSurface` (collectObjects=All, useGeometry=PhysicsColliders) in the ACTIVE
+scene, bakes it, and persists a `NavMeshData` asset at `Assets/NavMeshData/NavMesh_<scene>.asset` that
+the surface references (survives editor restarts). Uses `com.unity.ai.navigation` 2.0.10 (already in
+manifest). Ground enemies need this run once per level scene that hosts them; then Save the scene.
+**Gotchas:**
+- `collectObjects=All` bakes ALL loaded scenes' physics geometry. If another scene is loaded additively
+  and overlaps the play area (e.g. Area1LavaBridge overlaps Sandbox), it pollutes the NavMesh AND
+  `EnemyLineOfSight` raycasts (which test all layers). Unload the overlapping scene before baking/testing.
+- The Sandbox test arena: default 10×10 Ground was scaled to 60×60 (localScale 6,1,6), 5 cover cubes
+  added (`Cover` root, `M_SandboxRed`), the default `Main Camera` deleted (player camera from Core is the
+  MainCamera), then baked. Sandbox NavMesh = `Assets/NavMeshData/NavMesh_Sandbox.asset`.
+
+### EnemyNavMotor
+**Namespace:** `BlastFrame.Gameplay.Enemies` — **File:** `Assets/Scripts/Gameplay/Enemies/EnemyNavMotor.cs`
+Thin wrapper owning a `NavMeshAgent` (`[RequireComponent]`). API for behaviors: `SetDestination` (repath
+throttled ~0.25s), `SetSpeedMultiplier` (dash/lunge), `Stop`/`Resume`, `HasArrived`, `ApplyBaseSpeed`
+(pulls `EnemyStats.MoveSpeed`), `IsOnNavMesh`, `Velocity`. In Awake it forces any sibling Rigidbody
+kinematic with **interpolation None** (interpolation smooths MovePosition, not the agent's direct
+transform writes — leaving it on jitters), and disables agent rotation (behaviors face the player).
+**Gotcha:** the enemy must SPAWN on the NavMesh (agent auto-snaps within its height). Place ground
+enemies at y≈0 over baked NavMesh.
+
+### The five enemy behaviors (all in `Assets/Scripts/Gameplay/Enemies/`, extend `EnemyBehaviorBase`)
+Each prefab: root layer **Enemy**, kinematic Rigidbody, a non-trigger body collider, `EnemyStats`,
+`EnemyCore` (registry + `OnEnemyKilled` wired), the behavior (registry wired), an `EntityDefinitionSO`
+in `Assets/ScriptableObjects/Entities/`. Ground units also carry `EnemyNavMotor` (+ `NavMeshAgent`).
+Built + wired by their wizards under `Tools > Blast Frame > Enemies > Create <X> Prefab`
+(`Assets/Editor/PathfindingEnemyWizards.cs`). Distinct URP/Lit materials auto-created in
+`Assets/Art/Materials/` (M_Lobber, M_Skirmisher, M_Missiler, M_Biter, M_Bat, …).
+
+- **Lobber** (`EnemyBehaviorLobber`): NavMotor holds a band around `preferredRangeFactor`×Range
+  (0.75) ±`rangeBandFactor`×Range; lobs a pooled `ArcProjectile` on a high-arc ballistic solve at the
+  player (`projectileGravityScale` must match the ArcProjectile). Fires on LOS at `FireRate`. Muzzle
+  child. Defaults: hp4, move3.5, fireRate0.6, projSpeed16, range22.
+- **Skirmisher** (`EnemyBehaviorSkirmisher`): cover-user FSM (ToCover→InCover→ToPeek→Firing). Ring-samples
+  NavMesh (`NavMesh.SamplePosition`) for the nearest point with LOS to player BLOCKED (cover) or WITH LOS
+  (peek). Every `attackInterval` pops out, fires a burst of `burstCount` pooled `EnemyMissile`s, returns.
+  Dashes (`SetSpeedMultiplier` ~3 for `dashDuration`) when the player is within `playerCloseDistance` (→
+  farther cover). Muzzle child. Defaults: hp3, move4.5, projSpeed26, range24.
+- **Missiler** (`EnemyBehaviorMissiler`): slow tanky vehicle. NavMotor creeps to `stopDistanceFactor`
+  (0.7)×Range. Child **Turret** transform tracks player (turret + muzzle children). Two independent
+  cooldowns: (a) fast explosive shot = pooled `ArcProjectile` at **gravityScale 0** (straight, explodes on
+  impact) at `explosiveSpeedFactor`×ProjectileSpeed; (b) a `volleyCount` volley of pooled `HomingMissile`s
+  fanned upward. Defaults: hp10, move1.5, projSpeed18, range28.
+- **Biter** (`EnemyBehaviorBiter`): fast melee. NavMotor-chases with a shrinking sine weave; within
+  `lungeRange` bursts speed; within `biteRange` deals `Stats.Damage` contact damage via the DamageInfo
+  pipeline (`DamageKind.Contact`, source = its position, so the directional indicator points at it) on a
+  per-target `biteCooldown`. Defaults: hp2, move6, range30.
+- **Bat** (`EnemyBehaviorBat`): flying bomber, NO NavMesh (kinematic MovePosition steering + Perlin
+  wander like the Flyer). Ammo loop: flies to `hoverHeight` above the player, on LOS + within
+  `dropTolerance` drops its ONE bomb (pooled `ArcProjectile`, zero launch velocity = gravity drop), then
+  returns to its home point (spawn pos, or child `Roost`) to reload (`reloadTime`) before re-arming.
+  `bombVisual` child sphere toggles with ammo. dropPoint child. Defaults: hp3, move6.
+
+### HomingMissile (pooled projectile)
+**File:** `Assets/Scripts/Gameplay/Projectiles/HomingMissile.cs` — **Prefab:**
+`Assets/Prefabs/Projectiles/HomingMissile.prefab` — **Pool id:** `PoolIds.HomingMissile`.
+Layer **EnemyWeapon**, kinematic RB, trigger SphereCollider. Launches along a supplied dir (Missiler
+fires upward), flies straight for `homingDelay`, then curves toward the player at a clamped
+`turnDegPerSec` while accelerating to `cruiseSpeed`. **Detonate** (reach player / hit world / lifetime) →
+pooled `ArcExplosion` (enemy blast, damages player). **Shootable:** implements `IDamageable` (1 HP); a
+PlayerProjectile hit → `PopHarmless` → pooled `HomingPop`. Resets all state in `OnSpawn`.
+Wizard: `Tools > Blast Frame > Enemies > Create Homing Missile (Projectile + Pool)` — builds the missile
++ HomingPop prefabs, EntityDefinitions, and PoolConfig entries (prewarm 8 each).
+
+### HomingPop / VfxPop (harmless shot-down VFX)
+**File:** `Assets/Scripts/Gameplay/Weapons/VfxPop.cs` — **Prefab:**
+`Assets/Prefabs/Projectiles/HomingPop.prefab` — **Pool id:** `PoolIds.HomingPop`.
+Pure-visual pooled pop: scales to zero over `lifetime` then despawns. **NO physics, NO damage.**
+**Why not an AoeExplosion (CRITICAL gotcha):** `HomingMissile.PopHarmless` can fire RE-ENTRANTLY — an
+`ArcExplosion` (mask `-129` = all-except-Enemy, which INCLUDES the EnemyWeapon layer) catches nearby
+HomingMissiles in its OnSpawn damage loop → their `TakeDamage` → `PopHarmless`. If the pop were an
+`AoeExplosion`, its `OnSpawn` runs `Physics.OverlapSphereNonAlloc` into `AoeExplosion`'s **shared static
+`_overlapBuffer`**, corrupting the outer explosion's in-flight iteration so it then damages whatever the
+nested overlap found (this was silently killing the Biter through the -129 mask). VfxPop touches no
+physics, so it is safe to spawn from inside another explosion's loop. Do NOT swap it back to AoeExplosion.
+
+### Dropped bomb (DESIGN NOTE — reused, not a new type)
+The spec's "DroppedBomb" and the Missiler's "fast explosive shot" both **reuse `ArcProjectile`**
+(`Initialize(damage, launchVelocity, gravityScale)`): the Bat's bomb = zero launch velocity + gravity;
+the Missiler's straight shot = gravityScale 0. No `DroppedBomb.cs` was created (spec said "prefer reuse").
+
+---
+
+## Multiplayer — Local split-screen co-op
+
+### Per-player input (PlayerInputHandler → provider, PlayerInputReader, PlayerIdentity, PlayerInputResolver)
+**Namespace:** `BlastFrame.Input` — **Files:** `Assets/Scripts/Input/PlayerInputHandler.cs`, `PlayerInputReader.cs`, `PlayerIdentity.cs`, `PlayerInputResolver.cs`
+**What changed:** `PlayerInputHandler` (still on the `PlayerInputHandler` GameObject in **Core**) is no longer the single `IPlayerInput`. It is now an `IPlayerInputProvider` that owns a list of `PlayerInputReader`s (one per local player) and polls them each frame. Reader 0 (P1) is registered as the global `IPlayerInput` for back-compat; the provider is registered as `IPlayerInputProvider`.
+- `PlayerInputReader` (plain class, implements `IPlayerInput`): wraps its own `InputSystem_Actions`, optionally paired to a device set via `InputUser.PerformPairingWithDevice` + `actions.devices`. `null` devices = read ALL devices (original single-player behaviour — a solo gamepad still drives P1).
+- `PlayerIdentity` (component on a player root): holds the player index (0 = P1, default). LocalCoopManager sets index 1 on P2.
+- `PlayerInputResolver.Resolve(Component)`: the 7 input consumers (PlayerController, FirstPersonCamera, ChargeShot, DashModule, JumpModule, WallSlideModule, PlayerTestMode) now call this in **Start** instead of `ServiceLocator.Get<IPlayerInput>()`. It reads the `PlayerIdentity` in the parent → asks the provider for that index → falls back to index 0 / the global service. Single-player resolves to reader 0, unchanged.
+**Gotcha:** consumers must resolve in Start, never Awake (provider registers in Awake). Adding a second player at runtime restricts P1's reader to keyboard+mouse so the joining gamepad no longer double-drives P1.
+
+### LocalCoopManager
+**Namespace:** `BlastFrame.Gameplay.Coop` — **Files:** `Assets/Scripts/Gameplay/Coop/LocalCoopManager.cs`, `CoopPlayerHealthLabel.cs`
+**Type:** service MonoBehaviour on a `LocalCoopManager` GameObject in **Core** (wired by `Tools/Blast Frame/Multiplayer/Add Local Coop Manager To Core`). Registers `ILocalCoopManager`.
+**Required refs:** `entityRegistry` = `EntityRegistry.asset` (wired by the wizard). `playerPrefab` OPTIONAL — leave empty to spawn P2 by cloning the live P1 (default, proven path).
+**Behaviour:** a code-created `InputAction` (`<Gamepad>/start` + `/buttonSouth`) fires join while a player exists → `AddPlayer` pairs the joining gamepad to a new input slot, restricts P1 to keyboard+mouse, clones/spawns P2 at `spawnOffset` from P1, sets its `PlayerIdentity` to the new index, disables P2's AudioListener, de-tags P2's camera, and splits viewports (P1 = top `Rect(0,0.5,1,0.5)` depth 0; P2 = bottom `Rect(0,0,1,0.5)` depth 1 — only the URP **Base** camera; the ViewmodelCamera overlay inherits it). A **hold** `InputAction` (1s) on P2's Start leaves → destroys P2, restores P1 to full-screen + all devices, `RemovePlayer`.
+**Co-op death (provisional v1):** subscribes both players' `PlayerHealth.OnDeath`; a dead player whose ally is alive respawns after `respawnDelay` (5s) at the ally's position (`PlayerMotor.Teleport` + `ResetHealth`); both dead → normal death flow untouched.
+**Gotchas:** two URP Base cameras need DISTINCT depths to composite on the real display (equal depth still works but is non-deterministic). Only ONE AudioListener may be enabled — P2's is disabled. The MCP `unity_screenshot_game_view` tool renders only `Camera.main`, so a rect-limited main camera screenshots as "top half + black" — that is a capture artifact, NOT a render bug (verify split by rendering each base camera to a shared RenderTexture, or on a real display).
+
+### Online co-op foundation (Netcode for GameObjects) — GUARDED, NOT ACTIVE
+**Namespace:** `BlastFrame.Networking` — **Files:** `Assets/Scripts/Networking/ClientNetworkTransform.cs`, `NetworkPlayerController.cs`, `NetworkSessionLauncher.cs`, `Assets/Editor/NetworkWizard.cs`
+**State:** ALL guarded by `#if BLASTFRAME_NGO` and compile to nothing by default. `com.unity.netcode.gameobjects` could NOT be installed in this environment — UPM fails with "unable to verify the first certificate" (TLS) against packages.unity.com, and the offline cache has no usable copy. Written against the **NGO 1.x** API; UNVERIFIED (never compiled against the package).
+**To activate:** (1) install `com.unity.netcode.gameobjects` (a machine with working registry TLS; NGO 2.x preferred for Unity 6 — the one API note in `ClientNetworkTransform` covers the 1.x→2.x authority change), (2) add `BLASTFRAME_NGO` to Project Settings > Player > Scripting Define Symbols, (3) run `Tools/Blast Frame/Multiplayer/Add Network Manager To Core` (idle NetworkManager + UnityTransport + F10 connect panel), (4) make a networked Player prefab (NetworkObject + `ClientNetworkTransform` + `NetworkPlayerController`) and assign it as NetworkManager's PlayerPrefab + in the NetworkPrefabs list.
+**Design:** owner-authoritative — the owner runs the full motor/camera/input and streams its transform via the owner-auth `ClientNetworkTransform`; `NetworkPlayerController.OnNetworkSpawn` strips input/camera/motor/modules on non-owners. Shooting stays on the firing client's sim (local damage); `ReportShot`→ServerRpc→ClientRpc spawns a cosmetic-only tracer on remotes. Connect panel: F10 (F9 is PlayerTestMode), Host / Join(IP) / Disconnect, default 127.0.0.1:7777. NetworkManager is idle by default — single-player never starts a session. Enemy sync, server-auth projectiles, relay/NAT = follow-ups; LAN/loopback only.

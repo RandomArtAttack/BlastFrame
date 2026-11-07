@@ -68,6 +68,9 @@ namespace BlastFrame.Gameplay.Weapons
         {
             if (_despawned) return;
             _despawned = true;
+            // Resolve lazily: a point-blank spawn can impact in the same tick, before Start() runs — a
+            // null Pool then would leak the instance (active forever, pool slot lost). TryGet never throws.
+            if (Pool == null && ServiceLocator.TryGet<IPoolManager>(out var p)) Pool = p;
             Pool?.Despawn(gameObject);
         }
     }

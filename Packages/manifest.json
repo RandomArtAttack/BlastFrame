@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
     "com.unity.ai.navigation": "2.0.10",
     "com.unity.collab-proxy": "2.11.3",
     "com.unity.formats.fbx": "5.1.6",
@@ -47,6 +46,8 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.raa.unity-mcp-bridge": "file:D:/Projects and Work/Claude Projects/Random Projects/Unity/unity-mcp/bridge",
+    "com.unity.pipeline": "0.3.1-exp.1"
   }
 }

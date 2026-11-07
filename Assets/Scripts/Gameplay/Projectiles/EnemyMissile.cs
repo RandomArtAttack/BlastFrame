@@ -97,12 +97,16 @@ namespace BlastFrame.Gameplay.Projectiles
             if (_despawned) return;
             if (Time.time < _collisionGraceUntil) return;
 
+            // Ignore non-damageable trigger volumes (lava hazard zones, secret triggers, etc.) — they
+            // aren't solid and must not detonate the missile.
+            if (other.isTrigger && other.GetComponentInParent<IDamageable>() == null) return;
+
             // Ignore sibling missiles — avoid friendly-fire between simultaneous spawns.
             if (other.TryGetComponent<EnemyMissile>(out _)) return;
 
             // Walk up the hierarchy for an IDamageable (the player's capsule is on the root).
             var damageable = other.GetComponentInParent<IDamageable>();
-            damageable?.TakeDamage(_damage);
+            damageable?.TakeDamage(new DamageInfo(_damage, transform.position, DamageKind.Projectile));
 
             Despawn();
         }
@@ -113,6 +117,9 @@ namespace BlastFrame.Gameplay.Projectiles
         {
             if (_despawned) return;
             _despawned = true;
+            // Resolve lazily: a point-blank spawn can impact in the same tick, before Start() runs — a
+            // null _pool then would leak the instance (active forever, pool slot lost). TryGet never throws.
+            if (_pool == null) ServiceLocator.TryGet(out _pool);
             _pool?.Despawn(gameObject);
         }
     }

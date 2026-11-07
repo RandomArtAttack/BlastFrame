@@ -26,7 +26,7 @@ namespace BlastFrame.Gameplay.Player.Movement
 
         private void Start()
         {
-            _input = ServiceLocator.Get<IPlayerInput>();
+            _input = PlayerInputResolver.Resolve(this);
             _input.OnJumpPressed += OnJumpPressed;
             _input.OnJumpReleased += OnJumpReleased;
         }
